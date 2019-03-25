@@ -4,7 +4,6 @@ function LangtonsAnt(props) {
   const { gridWidth, gridHeight, squareWidth, animInterval } = props;
 
   const [antState, setAntState] = useState({ pos: [0, 0], dir: [-1, 0] });
-  const [step, setStep] = useState(0);
   const canvasRef = useRef(null);
 
   // Setup canvas
@@ -16,8 +15,6 @@ function LangtonsAnt(props) {
   }, []);
 
   useInterval(() => {
-    let newDir = [0, 0];
-
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     const [antCanvasX, antCanvasY] = [
@@ -31,7 +28,7 @@ function LangtonsAnt(props) {
     // Not affected by transformation matrix
     const curSquare = ctx.getImageData(antCanvasX, antCanvasY, 1, 1);
     const [r, g, b] = curSquare.data;
-
+    let newDir = [0, 0];
     if (r === 255 && g === 255 && b === 255) {
       ctx.fillStyle = "black";
       newDir = [antState.dir[1], -antState.dir[0]];
@@ -46,8 +43,6 @@ function LangtonsAnt(props) {
 
     let newPos = [antState.pos[0] + newDir[0], antState.pos[1] + newDir[1]];
     setAntState({ pos: newPos, dir: newDir });
-    setStep(s => s + 1);
-    //console.log(`Steps taken: ${step}`);
   }, animInterval);
 
   return (
