@@ -3,10 +3,11 @@ import React, { useState, useRef, useEffect } from "react";
 function LangtonsAnt(props) {
   const { gridWidth, gridHeight, squareWidth, animInterval } = props;
 
-  const [antPos, setAntPos] = useState([0, 0]);
-  const [antDir, setAntDir] = useState([-1, 0]);
+  const [antState, setAntState] = useState({ pos: [0, 0], dir: [-1, 0] });
+  const [step, setStep] = useState(0);
   const canvasRef = useRef(null);
 
+  // Setup canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -14,36 +15,39 @@ function LangtonsAnt(props) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }, []);
 
-  useEffect(() => {
+  useInterval(() => {
+    let newDir = [0, 0];
+
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    const [canvasX, canvasY] = [
-      canvas.width / 2 + antPos[0] * squareWidth,
-      canvas.height / 2 + antPos[1] * -squareWidth
+    const [antCanvasX, antCanvasY] = [
+      canvas.width / 2 + antState.pos[0] * squareWidth,
+      canvas.height / 2 + antState.pos[1] * -squareWidth
     ];
 
     ctx.save();
-    ctx.translate(canvasX, canvasY);
+    ctx.translate(antCanvasX, antCanvasY);
 
     // Not affected by transformation matrix
-    const curSquare = ctx.getImageData(canvasX, canvasY, 1, 1);
+    const curSquare = ctx.getImageData(antCanvasX, antCanvasY, 1, 1);
     const [r, g, b] = curSquare.data;
+
     if (r === 255 && g === 255 && b === 255) {
       ctx.fillStyle = "black";
-      setAntDir([antDir[1], -antDir[0]]);
+      newDir = [antState.dir[1], -antState.dir[0]];
     } else {
       ctx.fillStyle = "white";
-      setAntDir([-antDir[1], antDir[0]]);
+      newDir = [-antState.dir[1], antState.dir[0]];
     }
 
     ctx.fillRect(0, 0, squareWidth, squareWidth);
-    console.log("Drew new rect");
-    ctx.restore();
-  }, [antPos]);
 
-  useInterval(() => {
-    setAntPos([antPos[0] + antDir[0], antPos[1] + antDir[1]]);
-    console.log("Updated ant's position");
+    ctx.restore();
+
+    let newPos = [antState.pos[0] + newDir[0], antState.pos[1] + newDir[1]];
+    setAntState({ pos: newPos, dir: newDir });
+    setStep(s => s + 1);
+    //console.log(`Steps taken: ${step}`);
   }, animInterval);
 
   return (

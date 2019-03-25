@@ -7,7 +7,7 @@ import Slider from "@material-ui/lab/Slider";
 import LangtonsAnt from "./LangtonsAnt";
 
 function App(props) {
-  const [animSpeed, setAnimSpeed] = useState(16);
+  const [animSpeed, setAnimSpeed] = useState(40);
 
   return (
     <div className="App">
@@ -20,7 +20,7 @@ function App(props) {
       <Slider
         width={500}
         value={animSpeed}
-        min={1}
+        min={25}
         max={1000}
         onChange={(e, value) => setAnimSpeed(value)}
       />
