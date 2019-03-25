@@ -7,14 +7,14 @@ import Slider from "@material-ui/lab/Slider";
 import LangtonsAnt from "./LangtonsAnt";
 
 function App(props) {
-  const [animSpeed, setAnimSpeed] = useState(500);
+  const [animSpeed, setAnimSpeed] = useState(16);
 
   return (
     <div className="App">
       <LangtonsAnt
-        gridWidth={500}
-        gridHeight={500}
-        squareWidth={10}
+        gridWidth={1000}
+        gridHeight={1000}
+        squareWidth={2}
         animInterval={animSpeed}
       />
       <Slider
