@@ -34,6 +34,7 @@ function App(props) {
               gridWidth={500}
               gridHeight={500}
               squareWidth={2}
+              prerenderSteps={50}
               animInterval={animSpeed}
               isAnimating={isPlaying}
               numResets={numResets}

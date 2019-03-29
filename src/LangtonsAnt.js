@@ -8,10 +8,13 @@ function LangtonsAnt(props) {
     squareWidth,
     animInterval,
     isAnimating,
+    prerenderSteps,
     numResets
   } = props;
 
   const canvasRef = useRef(null);
+  const offscreenCanvasRef = useRef(document.createElement("canvas"));
+
   //Experiment using ref for state to ensure synchronous canvas updates
   const antState = useRef({ pos: [0, 0], dir: [-1, 0] });
 
@@ -25,25 +28,38 @@ function LangtonsAnt(props) {
     antState.current = { pos: [0, 0], dir: [-1, 0] };
   }, [numResets]);
 
+  useEffect(() => {
+    const offscreenCanvas = offscreenCanvasRef.current;
+    offscreenCanvas.width = gridWidth;
+    offscreenCanvas.height = gridHeight;
+    let newPos = [0, 0];
+    let newDir = [-1, 0];
+    for (let i = 0; i < prerenderSteps; i++) {
+      const { newPos: nextPos, newDir: nextDir } = takeStep(
+        offscreenCanvas,
+        newPos,
+        newDir,
+        squareWidth
+      );
+      newPos = nextPos;
+      newDir = nextDir;
+    }
+    // const prerender = offscreenCanvas
+    //   .getContext("2d")
+    //   .getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+    canvasRef.current.getContext("2d").drawImage(offscreenCanvas, 0, 0);
+    // canvasRef.current.getContext("2d").putImageData(prerender, 0, 0);
+    antState.current = { pos: newPos, dir: newDir };
+  }, [prerenderSteps, gridWidth, gridHeight]);
+
   useInterval(
     () => {
-      const { numSteps, rot } = takeStep(
+      const { newPos, newDir } = takeStep(
         canvasRef.current,
         antState.current.pos,
         antState.current.dir,
         squareWidth
       );
-
-      const newDir = [
-        rot[0][0] * antState.current.dir[0] +
-          rot[0][1] * antState.current.dir[1],
-        rot[1][0] * antState.current.dir[0] +
-          rot[1][1] * antState.current.dir[1]
-      ];
-      const newPos = [
-        antState.current.pos[0] + newDir[0] * numSteps,
-        antState.current.pos[1] + newDir[1] * numSteps
-      ];
 
       antState.current = { pos: newPos, dir: newDir };
     },
@@ -54,12 +70,13 @@ function LangtonsAnt(props) {
 }
 
 function takeStep(canvas, curPos, curDir, squareWidth) {
+  let newPos = [0, 0];
+  let newDir = [0, 0];
   const ctx = canvas.getContext("2d");
   const [antCanvasX, antCanvasY] = [
     canvas.width / 2 + curPos[0] * squareWidth,
     canvas.height / 2 + curPos[1] * -squareWidth
   ];
-  let [numSteps, rot] = [1, [0, 0]];
 
   ctx.save();
   ctx.translate(antCanvasX, antCanvasY);
@@ -69,18 +86,17 @@ function takeStep(canvas, curPos, curDir, squareWidth) {
   const [r, g, b] = curSquare.data;
   if (r === 255 && g === 255 && b === 255) {
     ctx.fillStyle = "black";
-    rot = [[0, 1], [-1, 0]];
-    //newDir = [curDir[1], -curDir[0]];
+    newDir = [curDir[1], -curDir[0]];
   } else {
     ctx.fillStyle = "white";
-    rot = [[0, -1], [1, 0]];
-    //newDir = [-curDir[1], curDir[0]];
+    newDir = [-curDir[1], curDir[0]];
   }
+  newPos = [curPos[0] + newDir[0], curPos[1] + newDir[1]];
 
   ctx.fillRect(0, 0, squareWidth, squareWidth);
   ctx.restore();
 
-  return { numSteps: numSteps, rot: rot };
+  return { newPos, newDir };
 }
 
 function executeRules(rules, curColor, curPos, curDir) {
