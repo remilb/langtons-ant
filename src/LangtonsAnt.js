@@ -13,8 +13,6 @@ function LangtonsAnt(props) {
   } = props;
 
   const canvasRef = useRef(null);
-  const offscreenCanvasRef = useRef(document.createElement("canvas"));
-
   //Experiment using ref for state to ensure synchronous canvas updates
   const antState = useRef({ pos: [0, 0], dir: [-1, 0] });
 
@@ -29,28 +27,38 @@ function LangtonsAnt(props) {
   }, [numResets]);
 
   useEffect(() => {
-    const offscreenCanvas = offscreenCanvasRef.current;
-    offscreenCanvas.width = gridWidth;
-    offscreenCanvas.height = gridHeight;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext("2d");
+
+    let gridState = {};
+    function getCurColor(curPos) {
+      if (gridState[curPos] == undefined) {
+        return "white";
+      }
+      return gridState[curPos]; // ? gridHeight[curPos] : "white";
+    }
+
     let newPos = [0, 0];
     let newDir = [-1, 0];
+    let newColor = "white";
     for (let i = 0; i < prerenderSteps; i++) {
-      const { newPos: nextPos, newDir: nextDir } = takeStep(
-        offscreenCanvas,
-        newPos,
-        newDir,
-        squareWidth
-      );
-      newPos = nextPos;
-      newDir = nextDir;
+      let oldPos = newPos.slice(0);
+      ({ newPos, newDir, newColor } = takeStepV2(newPos, newDir, getCurColor));
+      gridState[oldPos] = newColor;
     }
-    // const prerender = offscreenCanvas
-    //   .getContext("2d")
-    //   .getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-    canvasRef.current.getContext("2d").drawImage(offscreenCanvas, 0, 0);
-    // canvasRef.current.getContext("2d").putImageData(prerender, 0, 0);
+
+    for (let pos in gridState) {
+      const [x, y] = pos.split(",");
+      const [canvasX, canvasY] = [
+        canvas.width / 2 + Number(x) * squareWidth,
+        canvas.height / 2 + Number(y) * -squareWidth
+      ];
+      context.fillStyle = gridState[pos];
+      context.fillRect(canvasX, canvasY, squareWidth, squareWidth);
+    }
+
     antState.current = { pos: newPos, dir: newDir };
-  }, [prerenderSteps, gridWidth, gridHeight]);
+  }, [prerenderSteps]);
 
   useInterval(
     () => {
@@ -67,6 +75,23 @@ function LangtonsAnt(props) {
   );
 
   return <canvas ref={canvasRef} width={gridWidth} height={gridHeight} />;
+}
+
+function takeStepV2(curPos, curDir, getCurColor, rules) {
+  let curColor = getCurColor(curPos);
+  let newColor, newPos, newDir;
+  //Execute rules based on current color
+  //let {newPos, newDir, newColor} = executeRules()
+  if (curColor === "white") {
+    newColor = "black";
+    newDir = [curDir[1], -curDir[0]];
+  } else {
+    newColor = "white";
+    newDir = [-curDir[1], curDir[0]];
+  }
+  newPos = [curPos[0] + newDir[0], curPos[1] + newDir[1]];
+
+  return { newPos, newDir, newColor };
 }
 
 function takeStep(canvas, curPos, curDir, squareWidth) {

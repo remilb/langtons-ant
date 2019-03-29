@@ -16,7 +16,7 @@ function App(props) {
 
   return (
     <div className="App">
-      <Grid container alignItems="center" justify="center" spacing="16">
+      <Grid container alignItems="center" justify="center" spacing={16}>
         <Grid item xs={3}>
           <Controls
             onPlayPause={(e, v) => setIsPlaying(!isPlaying)}
@@ -34,7 +34,7 @@ function App(props) {
               gridWidth={500}
               gridHeight={500}
               squareWidth={2}
-              prerenderSteps={50}
+              prerenderSteps={9000}
               animInterval={animSpeed}
               isAnimating={isPlaying}
               numResets={numResets}
