@@ -7,6 +7,7 @@
     "@material-ui/icons": "^3.0.2",
     "@material-ui/lab": "^3.0.0-alpha.30",
     "react": "^16.8.5",
+    "react-color": "^2.17.0",
     "react-dom": "^16.8.5",
     "react-scripts": "2.1.8"
   },
