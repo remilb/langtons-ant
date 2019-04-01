@@ -13,6 +13,11 @@ function App(props) {
   const [animSpeed, setAnimSpeed] = useState(30);
   const [isPlaying, setIsPlaying] = useState(false);
   const [numResets, setNumResets] = useState(0);
+  const [rules, setRules] = useState({
+    "#ffffff": { nextColor: "#000000", rotation: "l", numSteps: 1 },
+    "#000000": { nextColor: "#37d67a", rotation: "r", numSteps: 1 },
+    "#37d67a": { nextColor: "#ffffff", rotation: "l", numSteps: 1 }
+  });
 
   return (
     <div className="App">
@@ -31,10 +36,11 @@ function App(props) {
         <Grid item>
           <Paper>
             <LangtonsAnt
+              rules={rules}
               gridWidth={500}
               gridHeight={500}
-              squareWidth={2}
-              prerenderSteps={9000}
+              squareWidth={3}
+              prerenderSteps={10000}
               animInterval={animSpeed}
               isAnimating={isPlaying}
               numResets={numResets}
@@ -42,7 +48,7 @@ function App(props) {
           </Paper>
         </Grid>
         <Grid item xs={3}>
-          <Rules />
+          <Rules rules={rules} onRulesChange={newRules => setRules(newRules)} />
         </Grid>
       </Grid>
     </div>

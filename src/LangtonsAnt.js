@@ -3,10 +3,7 @@ import { useInterval } from "./utils";
 
 function LangtonsAnt(props) {
   const {
-    rules = {
-      white: { nextColor: "black", rotation: "l", numSteps: 1 },
-      black: { nextColor: "white", rotation: "r", numSteps: 1 }
-    },
+    rules,
     gridWidth,
     gridHeight,
     squareWidth,
@@ -15,6 +12,8 @@ function LangtonsAnt(props) {
     prerenderSteps,
     numResets
   } = props;
+
+  const initialColor = Object.keys(rules)[0];
 
   const canvasRef = useRef(null);
   //Experiment using ref for state to ensure synchronous canvas updates
@@ -25,7 +24,7 @@ function LangtonsAnt(props) {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = "white";
+    ctx.fillStyle = initialColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     antState.current = { pos: [0, 0], dir: [-1, 0] };
   }, [numResets]);
@@ -35,14 +34,14 @@ function LangtonsAnt(props) {
     let gridState = {};
     let newPos = [0, 0];
     let newDir = [-1, 0];
-    let newColor = "white";
+    let newColor = initialColor;
 
     for (let i = 0; i < prerenderSteps; i++) {
       let oldPos = newPos.slice(0);
       ({ newPos, newDir, newColor } = takeStep(
         newPos,
         newDir,
-        gridState[newPos] ? gridState[newPos] : "white",
+        gridState[newPos] ? gridState[newPos] : initialColor,
         rules
       ));
       gridState[oldPos] = newColor;
@@ -100,13 +99,21 @@ function getCellColorFromCanvas(canvas, pos, cellWidth) {
   ];
   const curSquare = context.getImageData(canvasX, canvasY, 1, 1);
   const [r, g, b] = curSquare.data;
-  return r === 255 && g === 255 && b === 255 ? "white" : "black";
+  return rgbToHex(r, g, b);
+}
+
+function rgbToHex(r, g, b) {
+  return "#" + byteToHex(r) + byteToHex(g) + byteToHex(b);
+}
+
+function byteToHex(b) {
+  let h = b.toString(16);
+  return h.length === 2 ? h : "0" + h;
 }
 
 // function projectCoordinatesToCanvas()
 
 function takeStep(curPos, curDir, curColor, rules) {
-  //let curColor = curColor(curPos);
   let { newPos, newDir, newColor } = executeRules(
     rules,
     curColor,
@@ -119,6 +126,9 @@ function takeStep(curPos, curDir, curColor, rules) {
 
 function executeRules(rules, curColor, curPos, curDir) {
   let rule = rules[curColor];
+  if (rule === undefined) {
+    rule = { nextColor: "aqua", rotation: "r", numSteps: 1 };
+  }
   let newColor = rule.nextColor;
   let newDir = applyRotation(rule.rotation, curDir);
   let newPos = curPos.map((e, i) => e + newDir[i] * rule.numSteps);
