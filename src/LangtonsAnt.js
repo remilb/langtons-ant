@@ -114,17 +114,6 @@ function byteToHex(b) {
 // function projectCoordinatesToCanvas()
 
 function takeStep(curPos, curDir, curColor, rules) {
-  let { newPos, newDir, newColor } = executeRules(
-    rules,
-    curColor,
-    curPos,
-    curDir
-  );
-
-  return { newPos, newDir, newColor };
-}
-
-function executeRules(rules, curColor, curPos, curDir) {
   let rule = rules[curColor];
   if (rule === undefined) {
     rule = { nextColor: "aqua", rotation: "r", numSteps: 1 };
