@@ -10,29 +10,22 @@ import {
 import { BlockPicker } from "react-color";
 
 function Rules({ rules, onRulesChange }) {
+  const ruleListItems = rules.map((rule, idx) => (
+    <Rule
+      key={idx}
+      rule={rule}
+      onRuleChange={newRule =>
+        onRulesChange(
+          Array.from(rules, (oldRule, i) => (i === idx ? newRule : oldRule))
+        )
+      }
+    />
+  ));
+
   return (
     <Paper>
       <Typography>Rules</Typography>
-      <List>
-        {Object.keys(rules).map((key, idx) => {
-          return (
-            <Rule
-              key={idx}
-              rule={{ onColor: key, ...rules[key] }}
-              onRuleChange={rule => {
-                let onColor = rule.onColor;
-                delete rule.onColor;
-                let newRule = {};
-                newRule[onColor] = rule;
-                let newRules = { ...rules };
-                delete newRules[key];
-                newRules = { ...newRules, ...newRule };
-                onRulesChange(newRules);
-              }}
-            />
-          );
-        })}
-      </List>
+      <List>{ruleListItems}</List>
     </Paper>
   );
 }
@@ -48,7 +41,7 @@ function Rule({ rule, onRuleChange }) {
             onRuleChange({ ...rule, onColor: c });
           }}
         />
-        turn left and change to
+        turn {rule.rotation} and change to
         <PopoverColorPicker
           color={rule.nextColor}
           onColorChange={c => {

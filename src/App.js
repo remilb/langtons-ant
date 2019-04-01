@@ -13,11 +13,12 @@ function App(props) {
   const [animSpeed, setAnimSpeed] = useState(30);
   const [isPlaying, setIsPlaying] = useState(false);
   const [numResets, setNumResets] = useState(0);
-  const [rules, setRules] = useState({
-    "#ffffff": { nextColor: "#000000", rotation: "l", numSteps: 1 },
-    "#000000": { nextColor: "#37d67a", rotation: "r", numSteps: 1 },
-    "#37d67a": { nextColor: "#ffffff", rotation: "l", numSteps: 1 }
-  });
+  const [rules, setRules] = useState([
+    { onColor: "#ffffff", nextColor: "#000000", rotation: "l", numSteps: 1 },
+    { onColor: "#000000", nextColor: "#37d67a", rotation: "r", numSteps: 1 },
+    { onColor: "#37d67a", nextColor: "#ffffff", rotation: "r", numSteps: 1 },
+    { onColor: "#000000", nextColor: "#37d67a", rotation: "l", numSteps: 1 }
+  ]);
 
   return (
     <div className="App">
@@ -36,7 +37,7 @@ function App(props) {
         <Grid item>
           <Paper>
             <LangtonsAnt
-              rules={rules}
+              rules={rulesArrayToMap(rules)}
               gridWidth={500}
               gridHeight={500}
               squareWidth={3}
@@ -53,6 +54,10 @@ function App(props) {
       </Grid>
     </div>
   );
+}
+
+function rulesArrayToMap(rulesArray) {
+  return Object.fromEntries(rulesArray.map(rule => [rule.onColor, rule]));
 }
 
 export default App;
