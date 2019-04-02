@@ -12,7 +12,7 @@ import Rules from "./Rules";
 function App(props) {
   const [animSpeed, setAnimSpeed] = useState(30);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [numResets, setNumResets] = useState(0);
+  const [isResetting, setIsResetting] = useState(true);
   const [rules, setRules] = useState([
     { onColor: "#ffffff", nextColor: "#000000", rotation: "l", numSteps: 1 },
     { onColor: "#000000", nextColor: "#37d67a", rotation: "r", numSteps: 1 },
@@ -31,7 +31,7 @@ function App(props) {
             maxAnimInterval={500}
             animInterval={animSpeed}
             handleAnimIntervalUpdate={(e, v) => setAnimSpeed(v)}
-            handleReset={() => setNumResets(numResets + 1)}
+            handleReset={() => setIsResetting(true)}
           />
         </Grid>
         <Grid item>
@@ -41,10 +41,11 @@ function App(props) {
               gridWidth={500}
               gridHeight={500}
               squareWidth={3}
-              prerenderSteps={10000}
+              prerenderSteps={50}
               animInterval={animSpeed}
               isAnimating={isPlaying}
-              numResets={numResets}
+              isResetting={isResetting}
+              onResetComplete={() => setIsResetting(false)}
             />
           </Paper>
         </Grid>

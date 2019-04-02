@@ -10,7 +10,8 @@ function LangtonsAnt(props) {
     animInterval,
     isAnimating,
     prerenderSteps,
-    numResets
+    isResetting,
+    onResetComplete
   } = props;
 
   const initialColor = Object.keys(rules)[0];
@@ -21,36 +22,33 @@ function LangtonsAnt(props) {
 
   // Initialize (or reset) canvas
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = initialColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    antState.current = { pos: [0, 0], dir: [-1, 0] };
-  }, [numResets]);
+    if (isResetting) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = initialColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    let gridState = {};
-    let newPos = [0, 0];
-    let newDir = [-1, 0];
-    let newColor = initialColor;
+      let newPos = [0, 0];
+      let newDir = [-1, 0];
+      let newColor = initialColor;
+      let gridState = {};
 
-    for (let i = 0; i < prerenderSteps; i++) {
-      let oldPos = newPos.slice(0);
-      ({ newPos, newDir, newColor } = takeStep(
-        newPos,
-        newDir,
-        gridState[newPos] ? gridState[newPos] : initialColor,
-        rules
-      ));
-      gridState[oldPos] = newColor;
+      for (let i = 0; i < prerenderSteps; i++) {
+        let oldPos = newPos.slice(0);
+        ({ newPos, newDir, newColor } = takeStep(
+          newPos,
+          newDir,
+          gridState[newPos] ? gridState[newPos] : initialColor,
+          rules
+        ));
+        gridState[oldPos] = newColor;
+      }
+      drawCells(canvas, gridState, squareWidth);
+
+      antState.current = { pos: newPos, dir: newDir };
+      onResetComplete();
     }
-
-    drawCells(canvas, gridState, squareWidth);
-
-    antState.current = { pos: newPos, dir: newDir };
-  }, [prerenderSteps]);
+  }, [isResetting, onResetComplete, prerenderSteps]);
 
   useInterval(
     () => {
