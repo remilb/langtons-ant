@@ -3,11 +3,27 @@ import {
   Paper,
   Typography,
   Button,
+  IconButton,
+  Fab,
   List,
   ListItem,
-  Popover
+  Select,
+  MenuItem,
+  Popover,
+  ListItemSecondaryAction
 } from "@material-ui/core";
+import AddIcon from "@material-ui/icons/Add";
+import DeleteIcon from "@material-ui/icons/Delete";
 import { BlockPicker } from "react-color";
+
+function generateValidRules(rules) {
+  return Array.from(rules, (rule, index) => {
+    let successorColor = rules[(index + 1) % rules.length].onColor;
+    return rule.nextColor !== successorColor
+      ? { ...rule, nextColor: successorColor }
+      : rule;
+  });
+}
 
 function Rules({ rules, onRulesChange }) {
   const ruleListItems = rules.map((rule, idx) => (
@@ -16,7 +32,9 @@ function Rules({ rules, onRulesChange }) {
       rule={rule}
       onRuleChange={newRule =>
         onRulesChange(
-          Array.from(rules, (oldRule, i) => (i === idx ? newRule : oldRule))
+          generateValidRules(
+            Array.from(rules, (oldRule, i) => (i === idx ? newRule : oldRule))
+          )
         )
       }
     />
@@ -24,8 +42,22 @@ function Rules({ rules, onRulesChange }) {
 
   return (
     <Paper>
-      <Typography>Rules</Typography>
       <List>{ruleListItems}</List>
+      <Fab
+        onClick={() =>
+          onRulesChange([
+            ...rules,
+            {
+              onColor: rules[rules.length - 1].nextColor,
+              nextColor: rules[0].onColor,
+              rotation: "l",
+              numSteps: 1
+            }
+          ])
+        }
+      >
+        <AddIcon />
+      </Fab>
     </Paper>
   );
 }
@@ -34,14 +66,22 @@ function Rule({ rule, onRuleChange }) {
   return (
     <ListItem>
       <Typography>
-        On
+        On{" "}
         <PopoverColorPicker
           color={rule.onColor}
           onColorChange={c => {
             onRuleChange({ ...rule, onColor: c });
           }}
-        />
-        turn {rule.rotation} and change to
+        />{" "}
+        turn
+        <Select
+          value={rule.rotation}
+          onChange={e => onRuleChange({ ...rule, rotation: e.target.value })}
+        >
+          <MenuItem value="l">Left</MenuItem>
+          <MenuItem value="r">Right</MenuItem>
+        </Select>
+        and change to{" "}
         <PopoverColorPicker
           color={rule.nextColor}
           onColorChange={c => {
@@ -59,6 +99,7 @@ function PopoverColorPicker({ color, onColorChange }) {
   return (
     <Fragment>
       <Button
+        variant="outlined"
         onClick={e => setAnchorEl(e.currentTarget)}
         style={{ backgroundColor: color }}
       />
