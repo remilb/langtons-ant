@@ -14,22 +14,21 @@ function LangtonsAnt(props) {
     onResetComplete
   } = props;
 
-  const initialColor = Object.keys(rules)[0];
-
   const canvasRef = useRef(null);
-  //Experiment using ref for state to ensure synchronous canvas updates
-  const antState = useRef({ pos: [0, 0], dir: [-1, 0] });
+  //Using ref instead of state to ensure synchronous canvas updates
+  const antState = useRef({ pos: [0, 0], dir: [1, 0] });
 
   // Initialize (or reset) canvas
   useEffect(() => {
     if (isResetting) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
+      const initialColor = Object.keys(rules)[0];
       ctx.fillStyle = initialColor;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       let newPos = [0, 0];
-      let newDir = [-1, 0];
+      let newDir = [1, 0];
       let newColor = initialColor;
       let gridState = {};
 
@@ -48,7 +47,7 @@ function LangtonsAnt(props) {
       antState.current = { pos: newPos, dir: newDir };
       onResetComplete();
     }
-  }, [isResetting, onResetComplete, prerenderSteps]);
+  }, [isResetting, onResetComplete, prerenderSteps, rules]);
 
   useInterval(
     () => {
@@ -108,8 +107,6 @@ function byteToHex(b) {
   let h = b.toString(16);
   return h.length === 2 ? h : "0" + h;
 }
-
-// function projectCoordinatesToCanvas()
 
 function takeStep(curPos, curDir, curColor, rules) {
   let rule = rules[curColor];

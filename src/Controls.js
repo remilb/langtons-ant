@@ -19,7 +19,9 @@ function Controls(props) {
     minAnimInterval,
     maxAnimInterval,
     animInterval,
-    handleAnimIntervalUpdate,
+    onAnimIntervalUpdate,
+    prerenderSteps,
+    onPrerenderStepsChange,
     handleReset
   } = props;
 
@@ -36,13 +38,41 @@ function Controls(props) {
         </Grid>
       </Grid>
       <List>
-        <ListItem>
-          <ListItemText primary="Animation speed" />
+        <ListItem
+          style={{
+            flexDirection: "column",
+            justifyContent: "flex-end",
+            alignItems: "center"
+          }}
+        >
+          <ListItemText
+            primary="Animation speed"
+            style={{ alignSelf: "flex-start" }}
+          />
           <Slider
             value={animInterval}
             min={maxAnimInterval}
             max={minAnimInterval}
-            onChange={handleAnimIntervalUpdate}
+            onChange={onAnimIntervalUpdate}
+          />
+        </ListItem>
+        <ListItem
+          style={{
+            flexDirection: "column",
+            justifyContent: "flex-end",
+            alignItems: "center"
+          }}
+        >
+          <ListItemText
+            primary="Prerender steps"
+            style={{ alignSelf: "flex-start" }}
+          />
+          <Slider
+            value={prerenderSteps}
+            min={0}
+            max={100000}
+            step={1}
+            onChange={onPrerenderStepsChange}
           />
         </ListItem>
       </List>

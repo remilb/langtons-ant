@@ -11,13 +11,14 @@ import Rules from "./Rules";
 
 function App(props) {
   const [animSpeed, setAnimSpeed] = useState(30);
+  const [prerenderSteps, setPrerenderSteps] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isResetting, setIsResetting] = useState(true);
   const [rules, setRules] = useState([
     { onColor: "#ffffff", nextColor: "#000000", rotation: "l", numSteps: 1 },
     { onColor: "#000000", nextColor: "#37d67a", rotation: "r", numSteps: 1 },
-    { onColor: "#37d67a", nextColor: "#ffffff", rotation: "r", numSteps: 1 },
-    { onColor: "#000000", nextColor: "#37d67a", rotation: "l", numSteps: 1 }
+    { onColor: "#37d67a", nextColor: "#ff8a65", rotation: "r", numSteps: 1 },
+    { onColor: "#ff8a65", nextColor: "#ffffff", rotation: "l", numSteps: 1 }
   ]);
 
   return (
@@ -28,9 +29,11 @@ function App(props) {
             onPlayPause={(e, v) => setIsPlaying(!isPlaying)}
             isPlaying={isPlaying}
             minAnimInterval={20}
-            maxAnimInterval={500}
+            maxAnimInterval={60}
             animInterval={animSpeed}
-            handleAnimIntervalUpdate={(e, v) => setAnimSpeed(v)}
+            onAnimIntervalUpdate={(e, v) => setAnimSpeed(v)}
+            prerenderSteps={prerenderSteps}
+            onPrerenderStepsChange={(e, v) => setPrerenderSteps(v)}
             handleReset={() => setIsResetting(true)}
           />
         </Grid>
@@ -41,7 +44,7 @@ function App(props) {
               gridWidth={500}
               gridHeight={500}
               squareWidth={3}
-              prerenderSteps={50}
+              prerenderSteps={prerenderSteps}
               animInterval={animSpeed}
               isAnimating={isPlaying}
               isResetting={isResetting}
