@@ -1,11 +1,9 @@
 import React, { useState } from "react";
-import logo from "./logo.svg";
 import "./App.css";
 
-import { Grid, Paper, Typography } from "@material-ui/core";
-import Slider from "@material-ui/lab/Slider";
+import { Grid, Paper } from "@material-ui/core";
 
-import LangtonsAnt from "./LangtonsAnt";
+import LangtonsAnt from "./components/LangtonsAnt";
 import Controls from "./Controls";
 import Rules from "./Rules";
 

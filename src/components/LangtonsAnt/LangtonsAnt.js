@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useInterval } from "./utils";
+import React, { useRef, useEffect } from "react";
+import { takeStep } from "./langtonsAntUtils";
+import { useInterval } from "../../utils";
 
-function LangtonsAnt(props) {
+export function LangtonsAnt(props) {
   const {
     rules,
     gridWidth,
@@ -16,7 +17,7 @@ function LangtonsAnt(props) {
 
   const canvasRef = useRef(null);
   //Using ref instead of state to ensure synchronous canvas updates
-  const antState = useRef({ pos: [0, 0], dir: [1, 0] });
+  const antState = useRef({ pos: [0, 0], dir: 0 });
 
   // Initialize (or reset) canvas
   useEffect(() => {
@@ -28,15 +29,15 @@ function LangtonsAnt(props) {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       let newPos = [0, 0];
-      let newDir = [1, 0];
+      let newDirIndex = 0;
       let newColor = initialColor;
       let gridState = {};
 
       for (let i = 0; i < prerenderSteps; i++) {
         let oldPos = newPos.slice(0);
-        ({ newPos, newDir, newColor } = takeStep(
+        ({ newPos, newDirIndex, newColor } = takeStep(
           newPos,
-          newDir,
+          newDirIndex,
           gridState[newPos] ? gridState[newPos] : initialColor,
           rules
         ));
@@ -44,7 +45,7 @@ function LangtonsAnt(props) {
       }
       drawCells(canvas, gridState, squareWidth);
 
-      antState.current = { pos: newPos, dir: newDir };
+      antState.current = { pos: newPos, dir: newDirIndex };
       onResetComplete();
     }
   }, [isResetting, onResetComplete, prerenderSteps, rules]);
@@ -56,7 +57,7 @@ function LangtonsAnt(props) {
       let curDir = antState.current.dir;
       let curColor = getCellColorFromCanvas(canvas, curPos, squareWidth);
 
-      const { newPos, newDir, newColor } = takeStep(
+      const { newPos, newDirIndex, newColor } = takeStep(
         curPos,
         curDir,
         curColor,
@@ -67,7 +68,7 @@ function LangtonsAnt(props) {
       cellData[curPos] = newColor;
       drawCells(canvas, cellData, squareWidth);
 
-      antState.current = { pos: newPos, dir: newDir };
+      antState.current = { pos: newPos, dir: newDirIndex };
     },
     isAnimating ? animInterval : null
   );
@@ -79,21 +80,61 @@ function drawCells(canvas, cellData, cellWidth) {
   const context = canvas.getContext("2d");
   for (let pos in cellData) {
     const [x, y] = pos.split(",");
-    const [canvasX, canvasY] = [
-      canvas.width / 2 + Number(x) * cellWidth,
-      canvas.height / 2 + Number(y) * -cellWidth
-    ];
+    // const [canvasX, canvasY] = [
+    //   canvas.width / 2 + Number(x) * cellWidth,
+    //   canvas.height / 2 + Number(y) * -cellWidth
+    // ];
+    const [canvasX, canvasY] = canvasCoordsFromAxialHex(
+      [x, y],
+      8,
+      canvas.width,
+      canvas.height
+    );
     context.fillStyle = cellData[pos];
-    context.fillRect(canvasX, canvasY, cellWidth, cellWidth);
+    //context.fillRect(canvasX, canvasY, cellWidth, cellWidth);
+    drawHex(context, [canvasX, canvasY], 8);
   }
+}
+
+function canvasCoordsFromAxialHex(pos, size, canvasWidth, canvasHeight) {
+  const x = size * (Math.sqrt(3) * pos[0] + (Math.sqrt(3) / 2) * pos[1]);
+  const y = size * ((3 / 2) * pos[1]);
+  return [canvasWidth / 2 + x, canvasHeight / 2 + y];
+}
+
+function drawHex(context, center, size) {
+  const startingPoint = hex_corner(center, size, 0);
+  const remainingPoints = [1, 2, 3, 4, 5].map(v => hex_corner(center, size, v));
+  context.beginPath();
+  context.moveTo(...startingPoint);
+  for (const point of remainingPoints) {
+    context.lineTo(...point);
+  }
+  context.closePath();
+  context.fill();
+}
+
+function hex_corner(center, size, i) {
+  const angle_deg = 60 * i - 30;
+  const angle_rad = (Math.PI / 180) * angle_deg;
+  return [
+    center[0] + size * Math.cos(angle_rad),
+    center[1] + size * Math.sin(angle_rad)
+  ];
 }
 
 function getCellColorFromCanvas(canvas, pos, cellWidth) {
   const context = canvas.getContext("2d");
-  const [canvasX, canvasY] = [
-    canvas.width / 2 + pos[0] * cellWidth,
-    canvas.height / 2 + pos[1] * -cellWidth
-  ];
+  // const [canvasX, canvasY] = [
+  //   canvas.width / 2 + pos[0] * cellWidth,
+  //   canvas.height / 2 + pos[1] * -cellWidth
+  // ];
+  const [canvasX, canvasY] = canvasCoordsFromAxialHex(
+    pos,
+    8,
+    canvas.width,
+    canvas.height
+  );
   const curSquare = context.getImageData(canvasX, canvasY, 1, 1);
   const [r, g, b] = curSquare.data;
   return rgbToHex(r, g, b);
@@ -107,27 +148,3 @@ function byteToHex(b) {
   let h = b.toString(16);
   return h.length === 2 ? h : "0" + h;
 }
-
-function takeStep(curPos, curDir, curColor, rules) {
-  let rule = rules[curColor];
-  if (rule === undefined) {
-    rule = { nextColor: "aqua", rotation: "r", numSteps: 1 };
-  }
-  let newColor = rule.nextColor;
-  let newDir = applyRotation(rule.rotation, curDir);
-  let newPos = curPos.map((e, i) => e + newDir[i] * rule.numSteps);
-  return { newPos, newDir, newColor };
-}
-
-function applyRotation(rot, dir) {
-  switch (rot) {
-    case "r":
-      return [dir[1], -dir[0]];
-    case "l":
-      return [-dir[1], dir[0]];
-    default:
-      throw new Error("Invalid rotation supplied in rule set");
-  }
-}
-
-export default LangtonsAnt;
