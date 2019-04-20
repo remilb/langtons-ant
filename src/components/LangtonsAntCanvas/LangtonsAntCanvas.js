@@ -3,7 +3,7 @@ import { takeStep } from "./langtonsAntUtils";
 import { drawCells, getCellColorFromCanvas } from "./drawingUtils";
 import { useInterval } from "../../utils";
 
-export function LangtonsAnt(props) {
+export function LangtonsAntCanvas(props) {
   const {
     rules,
     cellType,

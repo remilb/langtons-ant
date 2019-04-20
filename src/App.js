@@ -3,7 +3,7 @@ import "./App.css";
 
 import { Grid, Paper } from "@material-ui/core";
 
-import LangtonsAnt from "./components/LangtonsAnt";
+import LangtonsAntCanvas from "./components/LangtonsAntCanvas";
 import Controls from "./Controls";
 import Rules from "./Rules";
 
@@ -37,9 +37,9 @@ function App(props) {
         </Grid>
         <Grid item>
           <Paper>
-            <LangtonsAnt
+            <LangtonsAntCanvas
               rules={rulesArrayToMap(rules)}
-              cellType="hex"
+              cellType="square"
               cellSize={8}
               gridWidth={500}
               gridHeight={500}
