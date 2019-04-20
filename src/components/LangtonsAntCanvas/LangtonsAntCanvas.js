@@ -8,8 +8,8 @@ export function LangtonsAntCanvas(props) {
     rules,
     cellType,
     cellSize,
-    gridWidth,
-    gridHeight,
+    canvasWidth,
+    canvasHeight,
     animInterval,
     isAnimating,
     prerenderSteps,
@@ -77,5 +77,5 @@ export function LangtonsAntCanvas(props) {
     isAnimating ? animInterval : null
   );
 
-  return <canvas ref={canvasRef} width={gridWidth} height={gridHeight} />;
+  return <canvas ref={canvasRef} width={canvasWidth} height={canvasHeight} />;
 }

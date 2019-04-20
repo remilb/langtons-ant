@@ -41,8 +41,8 @@ function App(props) {
               rules={rulesArrayToMap(rules)}
               cellType="square"
               cellSize={8}
-              gridWidth={500}
-              gridHeight={500}
+              canvasWidth={500}
+              canvasHeight={500}
               prerenderSteps={prerenderSteps}
               animInterval={animSpeed}
               isAnimating={isPlaying}
