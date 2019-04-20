@@ -14,9 +14,9 @@ function App(props) {
   const [isResetting, setIsResetting] = useState(true);
   const [rules, setRules] = useState([
     { onColor: "#ffffff", nextColor: "#000000", rotation: "l", numSteps: 1 },
-    { onColor: "#000000", nextColor: "#37d67a", rotation: "r", numSteps: 1 },
-    { onColor: "#37d67a", nextColor: "#ff8a65", rotation: "r", numSteps: 1 },
-    { onColor: "#ff8a65", nextColor: "#ffffff", rotation: "l", numSteps: 1 }
+    { onColor: "#000000", nextColor: "#ffffff", rotation: "r", numSteps: 1 }
+    // { onColor: "#37d67a", nextColor: "#ff8a65", rotation: "r", numSteps: 1 },
+    // { onColor: "#ff8a65", nextColor: "#ffffff", rotation: "l", numSteps: 1 }
   ]);
 
   return (
@@ -39,9 +39,10 @@ function App(props) {
           <Paper>
             <LangtonsAnt
               rules={rulesArrayToMap(rules)}
+              cellType="hex"
+              cellSize={8}
               gridWidth={500}
               gridHeight={500}
-              squareWidth={3}
               prerenderSteps={prerenderSteps}
               animInterval={animSpeed}
               isAnimating={isPlaying}

@@ -8,15 +8,9 @@ const AXIAL_HEX_GRID_DIRECTIONS = [
   [0, 1]
 ];
 
-export function takeStep(
-  curPos,
-  curDirIndex,
-  curColor,
-  rules,
-  gridType = "hex"
-) {
+export function takeStep(curPos, curDirIndex, curColor, rules, cellType) {
   const gridDirs =
-    gridType === "square" ? SQUARE_GRID_DIRECTIONS : AXIAL_HEX_GRID_DIRECTIONS;
+    cellType === "square" ? SQUARE_GRID_DIRECTIONS : AXIAL_HEX_GRID_DIRECTIONS;
 
   let rule = rules[curColor];
 
@@ -42,17 +36,6 @@ function directionIndexFromRotation(rot, dirIndex) {
       return dirIndex - 1;
     case "l":
       return dirIndex + 1;
-    default:
-      throw new Error("Invalid rotation supplied in rule set");
-  }
-}
-
-function applyRotation(rot, dir) {
-  switch (rot) {
-    case "r":
-      return [dir[1], -dir[0]];
-    case "l":
-      return [-dir[1], dir[0]];
     default:
       throw new Error("Invalid rotation supplied in rule set");
   }
