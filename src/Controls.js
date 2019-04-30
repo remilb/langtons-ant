@@ -26,7 +26,7 @@ function Controls(props) {
   } = props;
 
   return (
-    <Paper>
+    <>
       <Grid container alignItems="center" justify="center" spacing="16">
         <Grid item>
           <PlayPauseButton onPlayPause={onPlayPause} isPlaying={isPlaying} />
@@ -76,7 +76,7 @@ function Controls(props) {
           />
         </ListItem>
       </List>
-    </Paper>
+    </>
   );
 }
 

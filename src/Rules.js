@@ -6,6 +6,7 @@ import {
   IconButton,
   Fab,
   List,
+  ListSubheader,
   ListItem,
   Select,
   MenuItem,
@@ -41,7 +42,8 @@ function Rules({ rules, onRulesChange }) {
   ));
 
   return (
-    <Paper>
+    <Fragment>
+      <Typography variant="h5">Rules</Typography>
       <List>{ruleListItems}</List>
       <Fab
         onClick={() =>
@@ -58,7 +60,7 @@ function Rules({ rules, onRulesChange }) {
       >
         <AddIcon />
       </Fab>
-    </Paper>
+    </Fragment>
   );
 }
 
@@ -81,13 +83,6 @@ function Rule({ rule, onRuleChange }) {
           <MenuItem value="l">Left</MenuItem>
           <MenuItem value="r">Right</MenuItem>
         </Select>
-        and change to{" "}
-        <PopoverColorPicker
-          color={rule.nextColor}
-          onColorChange={c => {
-            onRuleChange({ ...rule, nextColor: c });
-          }}
-        />
       </Typography>
     </ListItem>
   );
