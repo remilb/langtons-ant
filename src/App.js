@@ -1,15 +1,9 @@
 import React, { useState } from "react";
 import "./App.css";
 
-import {
-  Grid,
-  AppBar,
-  Drawer,
-  Typography,
-  Toolbar,
-  Paper
-} from "@material-ui/core";
+import { Grid, Drawer, Typography, Paper } from "@material-ui/core";
 
+import AppHeader from "./components/AppHeader";
 import LangtonsAntCanvas from "./components/LangtonsAntCanvas";
 import Controls from "./Controls";
 import Rules from "./Rules";
@@ -28,13 +22,7 @@ function App(props) {
 
   return (
     <div className="App">
-      <AppBar position="fixed">
-        <Toolbar>
-          <Typography variant="h6" color="inherit">
-            Langton's Ant
-          </Typography>
-        </Toolbar>
-      </AppBar>
+      <AppHeader />
       <Grid container alignItems="center" justify="center" spacing={16}>
         <Drawer anchor="left" open={true} variant="persistent" elevation={16}>
           <Controls
