@@ -1,13 +1,5 @@
 import React from "react";
-import {
-  Typography,
-  Paper,
-  Button,
-  IconButton,
-  List,
-  ListItem,
-  ListItemText
-} from "@material-ui/core";
+import { Typography, Paper, IconButton } from "@material-ui/core";
 import Slider from "@material-ui/lab/Slider";
 import { makeStyles } from "@material-ui/core/styles";
 import { PlayArrow, Pause, Replay, Fullscreen } from "@material-ui/icons";

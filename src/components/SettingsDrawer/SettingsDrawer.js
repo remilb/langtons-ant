@@ -1,9 +1,6 @@
 import React from "react";
 import {
   Drawer,
-  List,
-  ListItem,
-  ListItemText,
   IconButton,
   Typography,
   FormControl,
@@ -14,8 +11,6 @@ import {
 import { makeStyles } from "@material-ui/core/styles";
 import { Close } from "@material-ui/icons";
 import Slider from "@material-ui/lab/Slider";
-
-import RuleItem from "../RuleItem";
 
 const useStyles = makeStyles(theme => ({
   settingsContainer: {
@@ -39,15 +34,7 @@ const useStyles = makeStyles(theme => ({
 }));
 
 function SettingsDrawer(props) {
-  const {
-    settings,
-    handleSettingsChange,
-    prerenderSteps,
-    onPrerenderStepsChange,
-    gridType,
-    onGridTypeChange,
-    onClose
-  } = props;
+  const { settings, handleSettingsChange, onClose } = props;
   const classes = useStyles();
 
   return (
