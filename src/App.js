@@ -1,23 +1,13 @@
 import React, { useState } from "react";
-
-import {
-  Grid,
-  Drawer,
-  Typography,
-  Paper,
-  CssBaseline
-} from "@material-ui/core";
+import { CssBaseline } from "@material-ui/core";
 
 import AppHeader from "./components/AppHeader";
 import PlaybackControls from "./components/PlaybackControls";
 import LangtonsAntCanvas from "./components/LangtonsAntCanvas";
 import SetttingsDrawer from "./components/SettingsDrawer";
 import RulesDrawer from "./components/RulesDrawer";
-import Rules from "./Rules";
 
-import RuleItem from "./components/RuleItem";
-
-function App(props) {
+function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState({
     prerenderSteps: 0,
@@ -67,9 +57,6 @@ function App(props) {
         onRulesChange={newRules => setRules(newRules)}
         onClose={() => setShowRules(false)}
       />
-      <Drawer anchor="bottom" open={false} variant="persistent" elevation={16}>
-        <Rules rules={rules} onRulesChange={newRules => setRules(newRules)} />
-      </Drawer>
       <PlaybackControls
         onPlayPause={(e, v) => setIsPlaying(!isPlaying)}
         isPlaying={isPlaying}
