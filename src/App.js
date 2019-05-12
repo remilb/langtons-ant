@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { CssBaseline } from "@material-ui/core";
 
 import AppHeader from "./components/AppHeader";
@@ -19,6 +19,16 @@ function App() {
   const [animSpeed, setAnimSpeed] = useState(32);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isResetting, setIsResetting] = useState(true);
+
+  const [cellSize, setCellSize] = useState(2);
+  // Can make this more sophisticated later
+  const handleWheel = e => {
+    if (e.deltaY < 0) {
+      setCellSize(sz => sz + 2);
+    } else {
+      setCellSize(sz => sz - 2);
+    }
+  };
 
   const [showRules, setShowRules] = useState(true);
   const [rules, setRules] = useState([
@@ -46,7 +56,7 @@ function App() {
       <LangtonsAntCanvas
         rules={rulesArrayToMap(rules)}
         cellType={settings.gridType}
-        cellSize={8}
+        cellSize={cellSize}
         canvasWidth={windowSize.width}
         canvasHeight={windowSize.height}
         prerenderSteps={settings.prerenderSteps}
@@ -54,6 +64,7 @@ function App() {
         isAnimating={isPlaying}
         isResetting={isResetting}
         onResetComplete={() => setIsResetting(false)}
+        onWheel={handleWheel}
       />
       <RulesDrawer
         open={showRules}

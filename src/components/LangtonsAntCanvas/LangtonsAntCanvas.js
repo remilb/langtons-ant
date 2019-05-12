@@ -1,5 +1,4 @@
 import React, { useRef, useEffect } from "react";
-import ZoomCanvas from "../ZoomCanvas";
 import { takeStep } from "./langtonsAntUtils";
 import { drawCells, getCellColorFromCanvas } from "./drawingUtils";
 import { useInterval } from "../../hooks";
@@ -15,12 +14,15 @@ export function LangtonsAntCanvas(props) {
     isAnimating,
     prerenderSteps,
     isResetting,
-    onResetComplete
+    onResetComplete,
+    onWheel
   } = props;
 
   const canvasRef = useRef(null);
   //Using ref instead of state to ensure synchronous canvas updates
   const antState = useRef({ pos: [0, 0], dir: 0 });
+  const gridStateRef = useRef({});
+  const primaryColor = Object.keys(rules)[0];
 
   useResize(canvasRef, canvasWidth, canvasHeight);
 
@@ -29,58 +31,73 @@ export function LangtonsAntCanvas(props) {
     if (isResetting) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
-      const initialColor = Object.keys(rules)[0];
-      ctx.fillStyle = initialColor;
+      // const initialColor = Object.keys(rules)[0];
+      ctx.fillStyle = primaryColor;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       let newPos = [0, 0];
       let newDirIndex = 0;
-      let newColor = initialColor;
-      let gridState = {};
+      let newColor = primaryColor;
+      gridStateRef.current = {};
 
       for (let i = 0; i < prerenderSteps; i++) {
         let oldPos = newPos.slice(0);
         ({ newPos, newDirIndex, newColor } = takeStep(
           newPos,
           newDirIndex,
-          gridState[newPos] ? gridState[newPos] : initialColor,
+          gridStateRef.current[newPos]
+            ? gridStateRef.current[newPos]
+            : primaryColor,
           rules,
           cellType
         ));
-        gridState[oldPos] = newColor;
+        gridStateRef.current[oldPos] = newColor;
       }
-      drawCells(canvas, cellType, gridState, cellSize);
+      drawCells(canvas, cellType, gridStateRef.current, cellSize);
 
       antState.current = { pos: newPos, dir: newDirIndex };
       onResetComplete();
     }
   }, [isResetting, onResetComplete, prerenderSteps, rules]);
 
-  useAnimationFrame(() => {
+  useEffect(() => {
     const canvas = canvasRef.current;
-    let curPos = antState.current.pos;
-    let curDir = antState.current.dir;
-    let curColor = getCellColorFromCanvas(canvas, cellType, curPos, cellSize);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = primaryColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawCells(canvas, cellType, gridStateRef.current, cellSize);
+  }, [cellSize]);
 
-    const { newPos, newDirIndex, newColor } = takeStep(
-      curPos,
-      curDir,
-      curColor,
-      rules,
-      cellType
-    );
+  useAnimationFrame(
+    () => {
+      const gridState = gridStateRef.current;
 
-    let cellData = {};
-    cellData[curPos] = newColor;
-    drawCells(canvas, cellType, cellData, cellSize);
+      const canvas = canvasRef.current;
+      let curPos = antState.current.pos;
+      let curDir = antState.current.dir;
+      //let curColor = getCellColorFromCanvas(canvas, cellType, curPos, cellSize);
+      let curColor = gridState[curPos] ? gridState[curPos] : primaryColor;
 
-    antState.current = { pos: newPos, dir: newDirIndex };
-  }, animInterval);
+      const { newPos, newDirIndex, newColor } = takeStep(
+        curPos,
+        curDir,
+        curColor,
+        rules,
+        cellType
+      );
 
-  // return (
-  //   <ZoomCanvas ref={canvasRef} width={canvasWidth} height={canvasHeight} />
-  // );
-  return <canvas ref={canvasRef} />;
+      gridState[curPos] = newColor;
+
+      let cellData = {};
+      cellData[curPos] = newColor;
+      drawCells(canvas, cellType, cellData, cellSize);
+
+      antState.current = { pos: newPos, dir: newDirIndex };
+    },
+    isAnimating ? animInterval : null
+  );
+
+  return <canvas ref={canvasRef} onWheel={onWheel} />;
 }
 
 function useResize(canvasRef, width, height) {
@@ -112,7 +129,10 @@ function useAnimationFrame(callback, animInterval) {
   }, [callback]);
 
   const animLoop = timestamp => {
-    if (timestamp - prevTimestamp.current >= animInterval) {
+    if (
+      animInterval !== null &&
+      timestamp - prevTimestamp.current >= animInterval
+    ) {
       savedCallback.current();
       prevTimestamp.current = timestamp;
     }
