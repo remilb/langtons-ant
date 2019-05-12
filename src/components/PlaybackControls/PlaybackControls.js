@@ -48,7 +48,7 @@ function PlaybackControls(props) {
           <Replay />
         </IconButton>
         <PlayPauseButton onPlayPause={onPlayPause} isPlaying={isPlaying} />
-        <IconButton variant="contained" onClick={handleReset}>
+        <IconButton>
           <Fullscreen />
         </IconButton>
       </div>
