@@ -1,7 +1,8 @@
 import React, { useRef, useEffect } from "react";
+import ZoomCanvas from "../ZoomCanvas";
 import { takeStep } from "./langtonsAntUtils";
 import { drawCells, getCellColorFromCanvas } from "./drawingUtils";
-import { useInterval } from "../../utils";
+import { useInterval } from "../../hooks";
 
 export function LangtonsAntCanvas(props) {
   const {
@@ -20,6 +21,8 @@ export function LangtonsAntCanvas(props) {
   const canvasRef = useRef(null);
   //Using ref instead of state to ensure synchronous canvas updates
   const antState = useRef({ pos: [0, 0], dir: 0 });
+
+  useResize(canvasRef, canvasWidth, canvasHeight);
 
   // Initialize (or reset) canvas
   useEffect(() => {
@@ -53,29 +56,71 @@ export function LangtonsAntCanvas(props) {
     }
   }, [isResetting, onResetComplete, prerenderSteps, rules]);
 
-  useInterval(
-    () => {
-      const canvas = canvasRef.current;
-      let curPos = antState.current.pos;
-      let curDir = antState.current.dir;
-      let curColor = getCellColorFromCanvas(canvas, cellType, curPos, cellSize);
+  useAnimationFrame(() => {
+    const canvas = canvasRef.current;
+    let curPos = antState.current.pos;
+    let curDir = antState.current.dir;
+    let curColor = getCellColorFromCanvas(canvas, cellType, curPos, cellSize);
 
-      const { newPos, newDirIndex, newColor } = takeStep(
-        curPos,
-        curDir,
-        curColor,
-        rules,
-        cellType
-      );
+    const { newPos, newDirIndex, newColor } = takeStep(
+      curPos,
+      curDir,
+      curColor,
+      rules,
+      cellType
+    );
 
-      let cellData = {};
-      cellData[curPos] = newColor;
-      drawCells(canvas, cellType, cellData, cellSize);
+    let cellData = {};
+    cellData[curPos] = newColor;
+    drawCells(canvas, cellType, cellData, cellSize);
 
-      antState.current = { pos: newPos, dir: newDirIndex };
-    },
-    isAnimating ? animInterval : null
-  );
+    antState.current = { pos: newPos, dir: newDirIndex };
+  }, animInterval);
 
-  return <canvas ref={canvasRef} width={canvasWidth} height={canvasHeight} />;
+  // return (
+  //   <ZoomCanvas ref={canvasRef} width={canvasWidth} height={canvasHeight} />
+  // );
+  return <canvas ref={canvasRef} />;
+}
+
+function useResize(canvasRef, width, height) {
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const oldWidth = canvas.width;
+    const oldHeight = canvas.height;
+    // Store current canvas data
+    const curImage = ctx.getImageData(0, 0, oldWidth, oldHeight);
+    // Resize
+    const x = (width - oldWidth) / 2;
+    const y = (height - oldHeight) / 2;
+    canvas.width = width;
+    canvas.height = height;
+    // Redraw old data
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    ctx.putImageData(curImage, x, y);
+  }, [width, height]);
+}
+
+function useAnimationFrame(callback, animInterval) {
+  const savedCallback = useRef();
+  const frameRef = useRef();
+  const prevTimestamp = useRef(0);
+
+  useEffect(() => {
+    savedCallback.current = callback;
+  }, [callback]);
+
+  const animLoop = timestamp => {
+    if (timestamp - prevTimestamp.current >= animInterval) {
+      savedCallback.current();
+      prevTimestamp.current = timestamp;
+    }
+    frameRef.current = requestAnimationFrame(animLoop);
+  };
+
+  useEffect(() => {
+    frameRef.current = requestAnimationFrame(animLoop);
+    return () => cancelAnimationFrame(frameRef.current);
+  }, [animInterval]);
 }

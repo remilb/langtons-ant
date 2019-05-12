@@ -7,6 +7,8 @@ import LangtonsAntCanvas from "./components/LangtonsAntCanvas";
 import SetttingsDrawer from "./components/SettingsDrawer";
 import RulesDrawer from "./components/RulesDrawer";
 
+import { useWindowSize, useDebounce } from "./hooks";
+
 function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState({
@@ -14,7 +16,7 @@ function App() {
     gridType: "square"
   });
 
-  const [animSpeed, setAnimSpeed] = useState(30);
+  const [animSpeed, setAnimSpeed] = useState(32);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isResetting, setIsResetting] = useState(true);
 
@@ -25,6 +27,8 @@ function App() {
     { onColor: "#37d67a", nextColor: "#ff8a65", rotation: "r", numSteps: 1 },
     { onColor: "#ff8a65", nextColor: "#ffffff", rotation: "l", numSteps: 1 }
   ]);
+
+  const windowSize = useDebounce(useWindowSize(), 250);
 
   return (
     <>
@@ -42,9 +46,9 @@ function App() {
       <LangtonsAntCanvas
         rules={rulesArrayToMap(rules)}
         cellType={settings.gridType}
-        cellSize={3}
-        canvasWidth={document.documentElement.clientWidth}
-        canvasHeight={document.documentElement.clientHeight}
+        cellSize={8}
+        canvasWidth={windowSize.width}
+        canvasHeight={windowSize.height}
         prerenderSteps={settings.prerenderSteps}
         animInterval={animSpeed}
         isAnimating={isPlaying}
@@ -60,8 +64,8 @@ function App() {
       <PlaybackControls
         onPlayPause={(e, v) => setIsPlaying(!isPlaying)}
         isPlaying={isPlaying}
-        minAnimInterval={20}
-        maxAnimInterval={60}
+        minAnimInterval={15}
+        maxAnimInterval={100}
         animInterval={animSpeed}
         onAnimIntervalUpdate={(e, v) => setAnimSpeed(v)}
         handleReset={() => setIsResetting(true)}
