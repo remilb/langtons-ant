@@ -28,11 +28,22 @@ export function useWindowSize() {
   });
 
   useEffect(() => {
-    const handleResize = () =>
+    const handleResize = () => {
       setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   return windowSize;
+}
+
+export function useDebounce(value, interval) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useInterval(() => {
+    setDebouncedValue(value);
+  }, interval);
+
+  return debouncedValue;
 }
