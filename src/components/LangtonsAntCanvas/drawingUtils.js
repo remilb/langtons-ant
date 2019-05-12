@@ -14,6 +14,12 @@ export function drawCells(canvas, cellType, cellData, cellSize) {
   }
 }
 
+export function clearCanvas(canvas, clearColor) {
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = clearColor;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
 export function getCellColorFromCanvas(canvas, cellType, cellPos, cellSize) {
   const context = canvas.getContext("2d");
   const canvasPos = canvasCoordsFromCellCoords(

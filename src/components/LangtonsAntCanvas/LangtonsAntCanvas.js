@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import { takeStep } from "./langtonsAntUtils";
-import { drawCells, getCellColorFromCanvas } from "./drawingUtils";
+import { drawCells, clearCanvas, getCellColorFromCanvas } from "./drawingUtils";
 import { useInterval } from "../../hooks";
 
 export function LangtonsAntCanvas(props) {
@@ -26,14 +26,18 @@ export function LangtonsAntCanvas(props) {
 
   useResize(canvasRef, canvasWidth, canvasHeight);
 
+  // Handle zoom
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    clearCanvas(canvas, primaryColor);
+    drawCells(canvas, cellType, gridStateRef.current, cellSize);
+  }, [cellSize]);
+
   // Initialize (or reset) canvas
   useEffect(() => {
     if (isResetting) {
       const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      // const initialColor = Object.keys(rules)[0];
-      ctx.fillStyle = primaryColor;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      clearCanvas(canvas, primaryColor);
 
       let newPos = [0, 0];
       let newDirIndex = 0;
@@ -60,14 +64,6 @@ export function LangtonsAntCanvas(props) {
     }
   }, [isResetting, onResetComplete, prerenderSteps, rules]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    ctx.fillStyle = primaryColor;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    drawCells(canvas, cellType, gridStateRef.current, cellSize);
-  }, [cellSize]);
-
   useAnimationFrame(
     () => {
       const gridState = gridStateRef.current;
@@ -75,7 +71,6 @@ export function LangtonsAntCanvas(props) {
       const canvas = canvasRef.current;
       let curPos = antState.current.pos;
       let curDir = antState.current.dir;
-      //let curColor = getCellColorFromCanvas(canvas, cellType, curPos, cellSize);
       let curColor = gridState[curPos] ? gridState[curPos] : primaryColor;
 
       const { newPos, newDirIndex, newColor } = takeStep(
