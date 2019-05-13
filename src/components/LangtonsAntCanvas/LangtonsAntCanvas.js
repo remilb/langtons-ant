@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { takeSteps } from "./langtonsAntUtils";
 import { drawCells, clearCanvas, getCellColorFromCanvas } from "./drawingUtils";
 
@@ -25,13 +25,6 @@ export function LangtonsAntCanvas(props) {
 
   useResize(canvasRef, canvasWidth, canvasHeight);
 
-  // Handle zoom via cellSize change
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    clearCanvas(canvas, primaryColor);
-    drawCells(canvas, cellType, gridStateRef.current, cellSize);
-  }, [cellSize]);
-
   // Handle reset of canvas and related state
   useEffect(() => {
     if (isResetting) {
@@ -42,6 +35,24 @@ export function LangtonsAntCanvas(props) {
       onResetComplete();
     }
   }, [isResetting, onResetComplete]);
+
+  // Handle canvas pan
+  const { offset, setOffset } = useClickAndDragPan(canvasRef);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    clearCanvas(canvas, primaryColor);
+    ctx.setTransform(1, 0, 0, 1, offset.x, offset.y);
+    drawCells(canvas, cellType, gridStateRef.current, cellSize);
+  }, [offset]);
+
+  // Handle zoom via cellSize change
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    clearCanvas(canvas, primaryColor);
+    drawCells(canvas, cellType, gridStateRef.current, cellSize);
+  }, [cellSize]);
 
   // Prerender steps
   useEffect(() => {
@@ -122,4 +133,45 @@ function useAnimationFrame(callback, animInterval) {
     frameRef.current = requestAnimationFrame(animLoop);
     return () => cancelAnimationFrame(frameRef.current);
   }, [animInterval]);
+}
+
+function useClickAndDragPan(elementRef) {
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const isDragging = useRef(false);
+  const lastPoint = useRef();
+
+  useEffect(() => {
+    const onMouseDown = e => {
+      lastPoint.current = { x: e.clientX, y: e.clientY };
+      isDragging.current = true;
+    };
+
+    const onMouseMove = e => {
+      if (isDragging.current) {
+        const deltaX = e.clientX - lastPoint.current.x;
+        const deltaY = e.clientY - lastPoint.current.y;
+        lastPoint.current = { x: e.clientX, y: e.clientY };
+        setOffset(os => ({ x: os.x + deltaX, y: os.y + deltaY }));
+      }
+    };
+
+    const onMouseUp = e => {
+      if (isDragging) {
+        isDragging.current = false;
+      }
+    };
+    elementRef.current.addEventListener("mousedown", onMouseDown);
+    elementRef.current.addEventListener("mousemove", onMouseMove);
+    elementRef.current.addEventListener("mouseup", onMouseUp);
+    elementRef.current.addEventListener("mouseout", onMouseUp);
+
+    return () => {
+      elementRef.current.removeEventListener("mousedown", onMouseDown);
+      elementRef.current.removeEventListener("mousemove", onMouseMove);
+      elementRef.current.removeEventListener("mouseup", onMouseUp);
+      elementRef.current.addEventListener("mouseout", onMouseUp);
+    };
+  }, []);
+
+  return { offset, setOffset };
 }
