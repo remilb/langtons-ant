@@ -8,6 +8,29 @@ const AXIAL_HEX_GRID_DIRECTIONS = [
   [0, 1]
 ];
 
+export function takeSteps(numSteps, antState, gridState, rules, cellType) {
+  let newPos = antState.pos.slice(0);
+  let newDirIndex = antState.dir;
+  const primaryColor = Object.keys(rules)[0];
+  let newColor = primaryColor;
+  const gridStateUpdates = {};
+
+  for (let i = 0; i < numSteps; i++) {
+    let oldPos = newPos.slice(0);
+    ({ newPos, newDirIndex, newColor } = takeStep(
+      newPos,
+      newDirIndex,
+      gridState[newPos] ? gridState[newPos] : primaryColor,
+      rules,
+      cellType
+    ));
+    gridState[oldPos] = newColor;
+    gridStateUpdates[oldPos] = newColor;
+  }
+
+  return { newPos, newDirIndex, gridStateUpdates };
+}
+
 export function takeStep(curPos, curDirIndex, curColor, rules, cellType) {
   const gridDirs =
     cellType === "square" ? SQUARE_GRID_DIRECTIONS : AXIAL_HEX_GRID_DIRECTIONS;

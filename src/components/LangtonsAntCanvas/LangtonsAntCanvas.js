@@ -1,7 +1,6 @@
 import React, { useRef, useEffect } from "react";
-import { takeStep } from "./langtonsAntUtils";
+import { takeSteps } from "./langtonsAntUtils";
 import { drawCells, clearCanvas, getCellColorFromCanvas } from "./drawingUtils";
-import { useInterval } from "../../hooks";
 
 export function LangtonsAntCanvas(props) {
   const {
@@ -26,68 +25,53 @@ export function LangtonsAntCanvas(props) {
 
   useResize(canvasRef, canvasWidth, canvasHeight);
 
-  // Handle zoom
+  // Handle zoom via cellSize change
   useEffect(() => {
     const canvas = canvasRef.current;
     clearCanvas(canvas, primaryColor);
     drawCells(canvas, cellType, gridStateRef.current, cellSize);
   }, [cellSize]);
 
-  // Initialize (or reset) canvas
+  // Handle reset of canvas and related state
   useEffect(() => {
     if (isResetting) {
       const canvas = canvasRef.current;
-      clearCanvas(canvas, primaryColor);
-
-      let newPos = [0, 0];
-      let newDirIndex = 0;
-      let newColor = primaryColor;
       gridStateRef.current = {};
-
-      for (let i = 0; i < prerenderSteps; i++) {
-        let oldPos = newPos.slice(0);
-        ({ newPos, newDirIndex, newColor } = takeStep(
-          newPos,
-          newDirIndex,
-          gridStateRef.current[newPos]
-            ? gridStateRef.current[newPos]
-            : primaryColor,
-          rules,
-          cellType
-        ));
-        gridStateRef.current[oldPos] = newColor;
-      }
-      drawCells(canvas, cellType, gridStateRef.current, cellSize);
-
-      antState.current = { pos: newPos, dir: newDirIndex };
+      antState.current = { pos: [0, 0], dir: 0 };
+      clearCanvas(canvas, primaryColor);
       onResetComplete();
     }
-  }, [isResetting, onResetComplete, prerenderSteps, rules]);
+  }, [isResetting, onResetComplete]);
 
-  useAnimationFrame(
-    () => {
-      const gridState = gridStateRef.current;
-
+  // Prerender steps
+  useEffect(() => {
+    if (isResetting) {
       const canvas = canvasRef.current;
-      let curPos = antState.current.pos;
-      let curDir = antState.current.dir;
-      let curColor = gridState[curPos] ? gridState[curPos] : primaryColor;
-
-      const { newPos, newDirIndex, newColor } = takeStep(
-        curPos,
-        curDir,
-        curColor,
+      const { newPos, newDirIndex } = takeSteps(
+        prerenderSteps,
+        antState.current,
+        gridStateRef.current,
         rules,
         cellType
       );
-
-      gridState[curPos] = newColor;
-
-      let cellData = {};
-      cellData[curPos] = newColor;
-      drawCells(canvas, cellType, cellData, cellSize);
-
       antState.current = { pos: newPos, dir: newDirIndex };
+      drawCells(canvas, cellType, gridStateRef.current, cellSize);
+    }
+  }, [prerenderSteps, rules, isResetting]);
+
+  useAnimationFrame(
+    () => {
+      const canvas = canvasRef.current;
+      const { newPos, newDirIndex, gridStateUpdates } = takeSteps(
+        10,
+        antState.current,
+        gridStateRef.current,
+        rules,
+        cellType
+      );
+      antState.current = { pos: newPos, dir: newDirIndex };
+      // Only draw updated cells
+      drawCells(canvas, cellType, gridStateUpdates, cellSize);
     },
     isAnimating ? animInterval : null
   );
