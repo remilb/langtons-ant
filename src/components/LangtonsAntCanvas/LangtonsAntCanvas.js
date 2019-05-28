@@ -1,6 +1,12 @@
 import React, { useRef, useEffect, useState } from "react";
 import { takeSteps } from "./langtonsAntUtils";
-import { drawCells, clearCanvas, getCellColorFromCanvas } from "./drawingUtils";
+import {
+  drawCellsv2,
+  clearCanvas,
+  cellsInRect,
+  viewportToCanvasCoords
+} from "./drawingUtils";
+import { useDebounce } from "../../hooks";
 
 export function LangtonsAntCanvas(props) {
   const {
@@ -18,10 +24,12 @@ export function LangtonsAntCanvas(props) {
   } = props;
 
   const canvasRef = useRef(null);
-  //Using ref instead of state to ensure synchronous canvas updates
+  // Using ref instead of state to ensure synchronous canvas updates
   const antState = useRef({ pos: [0, 0], dir: 0 });
   const gridStateRef = useRef({});
   const primaryColor = Object.keys(rules)[0];
+
+  const [dragData, setDragData] = useClickAndDragPan(canvasRef);
 
   useResize(canvasRef, canvasWidth, canvasHeight);
 
@@ -29,29 +37,83 @@ export function LangtonsAntCanvas(props) {
   useEffect(() => {
     if (isResetting) {
       const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
       gridStateRef.current = {};
       antState.current = { pos: [0, 0], dir: 0 };
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       clearCanvas(canvas, primaryColor);
+      setDragData({
+        delta: { x: 0, y: 0 },
+        offset: {
+          x: Math.floor(canvas.width / 2),
+          y: Math.floor(canvas.height / 2)
+        }
+      });
+      ctx.setTransform(
+        1,
+        0,
+        0,
+        1,
+        Math.floor(canvas.width / 2),
+        Math.floor(canvas.height / 2)
+      );
       onResetComplete();
     }
   }, [isResetting, onResetComplete]);
 
   // Handle canvas pan
-  const { offset, setOffset } = useClickAndDragPan(canvasRef);
-
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    clearCanvas(canvas, primaryColor);
-    ctx.setTransform(1, 0, 0, 1, offset.x, offset.y);
-    drawCells(canvas, cellType, gridStateRef.current, cellSize);
-  }, [offset]);
+    ctx.globalCompositeOperation = "copy";
+    ctx.setTransform(1, 0, 0, 1, dragData.delta.x, dragData.delta.y);
+    ctx.drawImage(canvas, 0, 0);
+    ctx.setTransform(1, 0, 0, 1, dragData.offset.x, dragData.offset.y);
+    ctx.globalCompositeOperation = "source-over";
+    const leftEdge =
+      dragData.delta.x < 0
+        ? canvasWidth + dragData.delta.x - dragData.offset.x
+        : -dragData.offset.x;
+
+    const topEdge =
+      dragData.delta.y < 0
+        ? canvasHeight + dragData.delta.y - dragData.offset.y
+        : -dragData.offset.y;
+
+    const newlyVisibleX = cellsInRect(
+      leftEdge,
+      -dragData.offset.y,
+      Math.abs(dragData.delta.x),
+      canvasHeight,
+      cellType,
+      cellSize
+    );
+    const newlyVisibleY = cellsInRect(
+      -dragData.offset.x,
+      topEdge,
+      canvasWidth,
+      Math.abs(dragData.delta.y),
+      cellType,
+      cellSize
+    );
+    const newlyVisible = [...newlyVisibleX, ...newlyVisibleY];
+
+    if (newlyVisible.length > 0) {
+      const cellsToDraw = newlyVisible.reduce((cellData, pos) => {
+        if (pos in gridStateRef.current) {
+          cellData[pos] = gridStateRef.current[pos];
+        }
+        return cellData;
+      }, {});
+      drawCellsv2(canvas, cellType, cellsToDraw, cellSize);
+    }
+  }, [dragData]);
 
   // Handle zoom via cellSize change
   useEffect(() => {
     const canvas = canvasRef.current;
     clearCanvas(canvas, primaryColor);
-    drawCells(canvas, cellType, gridStateRef.current, cellSize);
+    drawCellsv2(canvas, cellType, gridStateRef.current, cellSize);
   }, [cellSize]);
 
   // Prerender steps
@@ -66,10 +128,11 @@ export function LangtonsAntCanvas(props) {
         cellType
       );
       antState.current = { pos: newPos, dir: newDirIndex };
-      drawCells(canvas, cellType, gridStateRef.current, cellSize);
+      drawCellsv2(canvas, cellType, gridStateRef.current, cellSize);
     }
   }, [prerenderSteps, rules, isResetting]);
 
+  // Main animation logic
   useAnimationFrame(
     () => {
       const canvas = canvasRef.current;
@@ -81,8 +144,7 @@ export function LangtonsAntCanvas(props) {
         cellType
       );
       antState.current = { pos: newPos, dir: newDirIndex };
-      // Only draw updated cells
-      drawCells(canvas, cellType, gridStateUpdates, cellSize);
+      drawCellsv2(canvas, cellType, gridStateUpdates, cellSize);
     },
     isAnimating ? animInterval : null
   );
@@ -135,8 +197,11 @@ function useAnimationFrame(callback, animInterval) {
   }, [animInterval]);
 }
 
-function useClickAndDragPan(elementRef) {
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
+function useClickAndDragPan(elementRef, useMouseOut = false) {
+  const [dragData, setDragData] = useState({
+    delta: { x: 0, y: 0 },
+    offset: { x: 0, y: 0 }
+  });
   const isDragging = useRef(false);
   const lastPoint = useRef();
 
@@ -151,7 +216,10 @@ function useClickAndDragPan(elementRef) {
         const deltaX = e.clientX - lastPoint.current.x;
         const deltaY = e.clientY - lastPoint.current.y;
         lastPoint.current = { x: e.clientX, y: e.clientY };
-        setOffset(os => ({ x: os.x + deltaX, y: os.y + deltaY }));
+        setDragData(s => ({
+          delta: { x: deltaX, y: deltaY },
+          offset: { x: s.offset.x + deltaX, y: s.offset.y + deltaY }
+        }));
       }
     };
 
@@ -160,18 +228,23 @@ function useClickAndDragPan(elementRef) {
         isDragging.current = false;
       }
     };
+
     elementRef.current.addEventListener("mousedown", onMouseDown);
-    elementRef.current.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mousemove", onMouseMove);
     elementRef.current.addEventListener("mouseup", onMouseUp);
-    elementRef.current.addEventListener("mouseout", onMouseUp);
+    if (useMouseOut) {
+      elementRef.current.addEventListener("mouseout", onMouseUp);
+    }
 
     return () => {
       elementRef.current.removeEventListener("mousedown", onMouseDown);
-      elementRef.current.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mousemove", onMouseMove);
       elementRef.current.removeEventListener("mouseup", onMouseUp);
-      elementRef.current.addEventListener("mouseout", onMouseUp);
+      if (useMouseOut) {
+        elementRef.current.addEventListener("mouseout", onMouseUp);
+      }
     };
   }, []);
 
-  return { offset, setOffset };
+  return [dragData, setDragData];
 }
