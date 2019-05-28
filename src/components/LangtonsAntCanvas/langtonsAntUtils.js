@@ -20,12 +20,17 @@ export function takeSteps(numSteps, antState, gridState, rules, cellType) {
     ({ newPos, newDirIndex, newColor } = takeStep(
       newPos,
       newDirIndex,
-      gridState[newPos] ? gridState[newPos] : primaryColor,
+      gridState[newPos] ? gridState[newPos].color : primaryColor,
       rules,
       cellType
     ));
-    gridState[oldPos] = newColor;
-    gridStateUpdates[oldPos] = newColor;
+    const oldColor = gridState[oldPos] ? gridState[oldPos].color : primaryColor;
+    gridState[oldPos] = { color: newColor, pos: oldPos, oldColor: oldColor };
+    gridStateUpdates[oldPos] = {
+      color: newColor,
+      pos: oldPos,
+      oldColor: oldColor
+    };
   }
 
   return { newPos, newDirIndex, gridStateUpdates };
@@ -35,31 +40,44 @@ export function takeStep(curPos, curDirIndex, curColor, rules, cellType) {
   const gridDirs =
     cellType === "square" ? SQUARE_GRID_DIRECTIONS : AXIAL_HEX_GRID_DIRECTIONS;
 
-  let rule = rules[curColor];
+  const rule = rules[curColor];
 
   if (rule === undefined) {
     rule = { nextColor: "aqua", rotation: "r", numSteps: 1 };
   }
-  let newColor = rule.nextColor;
-  let newDirIndex = directionIndexFromRotation(rule.rotation, curDirIndex);
-  newDirIndex =
-    ((newDirIndex % gridDirs.length) + gridDirs.length) % gridDirs.length;
-  let newDir = gridDirs[newDirIndex];
+  const newColor = rule.nextColor;
+  const newDirIndex = directionIndexFromRotation(
+    rule.rotation,
+    curDirIndex,
+    cellType
+  );
+  const newDir = gridDirs[newDirIndex];
 
-  let newPos = curPos.map((e, i) => e + newDir[i] * rule.numSteps);
+  const newPos = curPos.map((e, i) => e + newDir[i] * rule.numSteps);
 
   return { newPos, newDirIndex, newColor };
 }
 
-function directionIndexFromRotation(rot, dirIndex) {
+function directionIndexFromRotation(rot, dirIndex, cellType) {
+  const numDirs = cellType === "square" ? 4 : 6;
   switch (rot) {
     case "n":
       return dirIndex;
     case "r":
-      return dirIndex - 1;
+      return mod(dirIndex - 1, numDirs);
+    case "r2":
+      return mod(dirIndex - 2, numDirs);
     case "l":
-      return dirIndex + 1;
+      return mod(dirIndex + 1, numDirs);
+    case "l2":
+      return mod(dirIndex + 2, numDirs);
+    case "u":
+      return mod(dirIndex + numDirs / 2, numDirs);
     default:
       throw new Error("Invalid rotation supplied in rule set");
   }
+}
+
+function mod(a, b) {
+  return a - b * Math.floor(a / b);
 }

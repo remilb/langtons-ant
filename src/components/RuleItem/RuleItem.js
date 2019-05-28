@@ -42,12 +42,16 @@ function RuleItem(props) {
         onChange={e => onRuleChange({ ...rule, rotation: e.target.value })}
       >
         <MenuItem value="l">Left</MenuItem>
+        <MenuItem value="l2">Left Twice</MenuItem>
         <MenuItem value="r">Right</MenuItem>
+        <MenuItem value="r2">Right Twice</MenuItem>
+        <MenuItem value="n">No Turn</MenuItem>
+        <MenuItem value="u">Around</MenuItem>
       </Select>
       <ArrowRightIcon />
       <TextField
         value={rule.numSteps}
-        onChange={() => ""}
+        onChange={e => onRuleChange({ ...rule, numSteps: e.target.value })}
         type="number"
         InputLabelProps={{
           shrink: true
