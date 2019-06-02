@@ -14,15 +14,13 @@ export function drawCells(canvas, cellType, cellData, cellSize) {
   }
 }
 
-export function drawCellsv2(canvas, cellType, cellData, cellSize) {
+export function drawCellsv2(canvas, cellType, cellDataByColor, cellSize) {
   const context = canvas.getContext("2d");
-  const cellsByColor = groupByColor(cellData);
 
-  for (const color in cellsByColor) {
-    const cellsToDraw = cellsByColor[color];
+  for (const color in cellDataByColor) {
+    const cellsToDraw = cellDataByColor[color];
     context.beginPath();
     for (const pos of cellsToDraw) {
-      //const cellPos = pos.split(",");
       const canvasPos = canvasCoordsFromCellCoords(
         cellType,
         canvas.width,
@@ -37,7 +35,13 @@ export function drawCellsv2(canvas, cellType, cellData, cellSize) {
   }
 }
 
-function groupByColor(cellData) {
+export function addCellsToDrawQueue(drawQueue, cellsToAdd) {
+  for (const color in cellsToAdd) {
+    drawQueue[color].push.apply(drawQueue[color], cellsToAdd[color]);
+  }
+}
+
+export function groupByColor(cellData) {
   const byColor = {};
   for (const key in cellData) {
     const color = cellData[key].color;
@@ -51,12 +55,10 @@ function groupByColor(cellData) {
   return byColor;
 }
 
-export function clearCanvas(canvas, clearColor) {
-  const ctx = canvas.getContext("2d");
+export function clearCanvas(ctx) {
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = clearColor;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.restore();
 }
 

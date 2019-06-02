@@ -4,15 +4,14 @@ import {
   drawCellsv2,
   clearCanvas,
   cellsInRect,
-  viewportToCanvasCoords
+  groupByColor
 } from "./drawingUtils";
-import { useDebounce } from "../../hooks";
 
 export function LangtonsAntCanvas(props) {
   const {
     rules,
     cellType,
-    cellSize,
+    defaultCellSize,
     canvasWidth,
     canvasHeight,
     animInterval,
@@ -27,11 +26,18 @@ export function LangtonsAntCanvas(props) {
   // Using ref instead of state to ensure synchronous canvas updates
   const antState = useRef({ pos: [0, 0], dir: 0 });
   const gridStateRef = useRef({});
+
+  const cellSize = useRef(2);
   const primaryColor = Object.keys(rules)[0];
+
+  const cellsToRedraw = useRef({});
+  const stepsPerFrame = 10;
+  const maxCellsPerFrame = 1000 - stepsPerFrame;
+  const prevTimestampRef = useRef(0);
 
   const [dragData, setDragData] = useClickAndDragPan(canvasRef);
 
-  useResize(canvasRef, canvasWidth, canvasHeight);
+  //useResize(canvasRef, canvasWidth, canvasHeight);
 
   // Handle reset of canvas and related state
   useEffect(() => {
@@ -41,7 +47,7 @@ export function LangtonsAntCanvas(props) {
       gridStateRef.current = {};
       antState.current = { pos: [0, 0], dir: 0 };
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      clearCanvas(canvas, primaryColor);
+      clearCanvas(ctx);
       setDragData({
         delta: { x: 0, y: 0 },
         offset: {
@@ -60,6 +66,27 @@ export function LangtonsAntCanvas(props) {
       onResetComplete();
     }
   }, [isResetting, onResetComplete]);
+
+  // Prerender steps
+  useEffect(() => {
+    if (isResetting) {
+      const canvas = canvasRef.current;
+      const { newPos, newDirIndex } = takeSteps(
+        prerenderSteps,
+        antState.current,
+        gridStateRef.current,
+        rules,
+        cellType
+      );
+      antState.current = { pos: newPos, dir: newDirIndex };
+      drawCellsv2(
+        canvas,
+        cellType,
+        groupByColor(gridStateRef.current),
+        cellSize.current
+      );
+    }
+  }, [prerenderSteps, rules, isResetting]);
 
   // Handle canvas pan
   useEffect(() => {
@@ -86,7 +113,7 @@ export function LangtonsAntCanvas(props) {
       Math.abs(dragData.delta.x),
       canvasHeight,
       cellType,
-      cellSize
+      cellSize.current
     );
     const newlyVisibleY = cellsInRect(
       -dragData.offset.x,
@@ -94,62 +121,102 @@ export function LangtonsAntCanvas(props) {
       canvasWidth,
       Math.abs(dragData.delta.y),
       cellType,
-      cellSize
+      cellSize.current
     );
     const newlyVisible = [...newlyVisibleX, ...newlyVisibleY];
 
-    if (newlyVisible.length > 0) {
-      const cellsToDraw = newlyVisible.reduce((cellData, pos) => {
-        if (pos in gridStateRef.current) {
-          cellData[pos] = gridStateRef.current[pos];
-        }
-        return cellData;
-      }, {});
-      drawCellsv2(canvas, cellType, cellsToDraw, cellSize);
-    }
-  }, [dragData]);
+    // Add newly visible cells to draw queue
+    newlyVisible.forEach(pos => {
+      if (pos in gridStateRef.current) {
+        cellsToRedraw.current[pos] = pos;
+      }
+    });
+  }, [dragData, cellsToRedraw]);
 
   // Handle zoom via cellSize change
-  useEffect(() => {
+  const handleWheel = e => {
     const canvas = canvasRef.current;
-    clearCanvas(canvas, primaryColor);
-    drawCellsv2(canvas, cellType, gridStateRef.current, cellSize);
-  }, [cellSize]);
-
-  // Prerender steps
-  useEffect(() => {
-    if (isResetting) {
-      const canvas = canvasRef.current;
-      const { newPos, newDirIndex } = takeSteps(
-        prerenderSteps,
-        antState.current,
-        gridStateRef.current,
-        rules,
-        cellType
-      );
-      antState.current = { pos: newPos, dir: newDirIndex };
-      drawCellsv2(canvas, cellType, gridStateRef.current, cellSize);
+    let newCellSize = cellSize.current;
+    if (e.deltaY < 0) {
+      newCellSize++;
+    } else {
+      newCellSize--;
     }
-  }, [prerenderSteps, rules, isResetting]);
+    cellSize.current = newCellSize;
+    clearCanvas(canvas.getContext("2d"));
+    drawCellsv2(
+      canvas,
+      cellType,
+      groupByColor(gridStateRef.current),
+      cellSize.current
+    );
+  };
+
+  // useEffect(() => {
+  //   const canvas = canvasRef.current;
+  //   cellsInRect(0, 0, canvasWidth, canvasHeight);
+  //   clearCanvas(canvas.getContext("2d"));
+  //   drawCellsv2(canvas, cellType, groupByColor(gridStateRef.current), cellSize);
+  // }, [cellSize]);
 
   // Main animation logic
-  useAnimationFrame(
-    () => {
-      const canvas = canvasRef.current;
-      const { newPos, newDirIndex, gridStateUpdates } = takeSteps(
-        10,
+  useAnimationFrame(timestamp => {
+    const canvas = canvasRef.current;
+    const cellsToDraw = {};
+    // Compute next steps and add to draw pool if we are animating and animInterval has elapsed
+    if (isAnimating && timestamp - prevTimestampRef.current >= animInterval) {
+      const { newPos, newDirIndex, updatedCells } = takeSteps(
+        stepsPerFrame,
         antState.current,
         gridStateRef.current,
         rules,
         cellType
       );
       antState.current = { pos: newPos, dir: newDirIndex };
-      drawCellsv2(canvas, cellType, gridStateUpdates, cellSize);
-    },
-    isAnimating ? animInterval : null
-  );
 
-  return <canvas ref={canvasRef} onWheel={onWheel} />;
+      updatedCells.forEach(pos => {
+        const cellColor = gridStateRef.current[pos]
+          ? gridStateRef.current[pos].color
+          : primaryColor;
+        cellColor in cellsToDraw
+          ? cellsToDraw[cellColor].push(pos)
+          : (cellsToDraw[cellColor] = [pos]);
+      });
+
+      prevTimestampRef.current = timestamp;
+    }
+
+    // Add up to maxCellsPerFrame to draw pool regardless of whether we are animating
+    // These include cells that need to be redrawn as part of a pan
+    let drawCount = 0;
+    for (let [key, pos] of Object.entries(cellsToRedraw.current)) {
+      if (drawCount === maxCellsPerFrame) {
+        break;
+      }
+      const cellColor = gridStateRef.current[key]
+        ? gridStateRef.current[key].color
+        : primaryColor;
+
+      cellColor in cellsToDraw
+        ? cellsToDraw[cellColor].push(pos)
+        : (cellsToDraw[cellColor] = [pos]);
+      delete cellsToRedraw.current[key];
+      drawCount += 1;
+    }
+
+    drawCellsv2(canvas, cellType, cellsToDraw, cellSize.current);
+  });
+
+  return (
+    <div style={{ backgroundColor: primaryColor }}>
+      <canvas
+        ref={canvasRef}
+        width={canvasWidth}
+        height={canvasHeight}
+        onWheel={handleWheel}
+      />
+    </div>
+  );
 }
 
 function useResize(canvasRef, width, height) {
@@ -161,40 +228,35 @@ function useResize(canvasRef, width, height) {
     // Store current canvas data
     const curImage = ctx.getImageData(0, 0, oldWidth, oldHeight);
     // Resize
-    const x = (width - oldWidth) / 2;
-    const y = (height - oldHeight) / 2;
+    ctx.save();
     canvas.width = width;
     canvas.height = height;
-    // Redraw old data
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    ctx.restore();
+    // Redraw old data
+    const x = Math.floor((width - oldWidth) / 2);
+    const y = Math.floor((height - oldHeight) / 2);
     ctx.putImageData(curImage, x, y);
   }, [width, height]);
 }
 
-function useAnimationFrame(callback, animInterval) {
+function useAnimationFrame(callback) {
   const savedCallback = useRef();
   const frameRef = useRef();
-  const prevTimestamp = useRef(0);
 
   useEffect(() => {
     savedCallback.current = callback;
   }, [callback]);
 
-  const animLoop = timestamp => {
-    if (
-      animInterval !== null &&
-      timestamp - prevTimestamp.current >= animInterval
-    ) {
-      savedCallback.current();
-      prevTimestamp.current = timestamp;
-    }
-    frameRef.current = requestAnimationFrame(animLoop);
-  };
-
   useEffect(() => {
+    const animLoop = timestamp => {
+      savedCallback.current(timestamp);
+      frameRef.current = requestAnimationFrame(animLoop);
+    };
+
     frameRef.current = requestAnimationFrame(animLoop);
     return () => cancelAnimationFrame(frameRef.current);
-  }, [animInterval]);
+  }, []);
 }
 
 function useClickAndDragPan(elementRef, useMouseOut = false) {

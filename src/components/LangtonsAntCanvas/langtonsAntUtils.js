@@ -13,7 +13,7 @@ export function takeSteps(numSteps, antState, gridState, rules, cellType) {
   let newDirIndex = antState.dir;
   const primaryColor = Object.keys(rules)[0];
   let newColor = primaryColor;
-  const gridStateUpdates = {};
+  const updatedCells = [];
 
   for (let i = 0; i < numSteps; i++) {
     let oldPos = newPos.slice(0);
@@ -24,16 +24,11 @@ export function takeSteps(numSteps, antState, gridState, rules, cellType) {
       rules,
       cellType
     ));
-    const oldColor = gridState[oldPos] ? gridState[oldPos].color : primaryColor;
-    gridState[oldPos] = { color: newColor, pos: oldPos, oldColor: oldColor };
-    gridStateUpdates[oldPos] = {
-      color: newColor,
-      pos: oldPos,
-      oldColor: oldColor
-    };
+    gridState[oldPos] = { color: newColor, pos: oldPos };
+    updatedCells.push(oldPos);
   }
 
-  return { newPos, newDirIndex, gridStateUpdates };
+  return { newPos, newDirIndex, updatedCells };
 }
 
 export function takeStep(curPos, curDirIndex, curColor, rules, cellType) {
