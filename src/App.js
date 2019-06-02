@@ -20,16 +20,6 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isResetting, setIsResetting] = useState(true);
 
-  const [cellSize, setCellSize] = useState(3);
-  // Can make this more sophisticated later
-  const handleWheel = e => {
-    if (e.deltaY < 0) {
-      setCellSize(sz => sz + 2);
-    } else {
-      setCellSize(sz => sz - 2);
-    }
-  };
-
   const [showRules, setShowRules] = useState(true);
   const [rules, setRules] = useState([
     { onColor: "#ffffff", nextColor: "#000000", rotation: "r", numSteps: 1 },
@@ -64,7 +54,7 @@ function App() {
       <LangtonsAntCanvas
         rules={rulesArrayToMap(rules)}
         cellType={settings.gridType}
-        cellSize={cellSize}
+        defaultCellSize={3}
         canvasWidth={windowSize.width}
         canvasHeight={windowSize.height}
         prerenderSteps={settings.prerenderSteps}
@@ -72,7 +62,6 @@ function App() {
         isAnimating={isPlaying}
         isResetting={isResetting}
         onResetComplete={() => setIsResetting(false)}
-        onWheel={handleWheel}
       />
       <RulesDrawer
         open={showRules}
