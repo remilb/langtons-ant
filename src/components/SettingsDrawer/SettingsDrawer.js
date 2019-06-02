@@ -56,7 +56,7 @@ function SettingsDrawer(props) {
       <Slider
         value={settings.prerenderSteps}
         min={0}
-        max={100000}
+        max={1000000}
         step={1}
         onChange={(e, v) =>
           handleSettingsChange({ ...settings, prerenderSteps: v })
