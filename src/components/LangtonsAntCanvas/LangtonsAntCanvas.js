@@ -22,7 +22,7 @@ export function LangtonsAntCanvas(props) {
   } = props;
 
   const canvasRef = useRef(null);
-  // Using ref instead of state to ensure synchronous canvas updates
+  // Using ref instead of state due to imperative canvas drawing api, no need to trigger rerenders
   const antState = useRef({ pos: [0, 0], dir: 0 });
   const gridStateRef = useRef({});
 
