@@ -38,7 +38,7 @@ export function takeStep(curPos, curDirIndex, curColor, rules, cellType) {
   const rule = rules[curColor];
 
   if (rule === undefined) {
-    rule = { nextColor: "aqua", rotation: "r", numSteps: 1 };
+    throw new Error(`No rule for color: ${curColor}`);
   }
   const newColor = rule.nextColor;
   const newDirIndex = directionIndexFromRotation(
