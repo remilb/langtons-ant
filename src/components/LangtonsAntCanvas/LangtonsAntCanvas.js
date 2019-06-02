@@ -18,8 +18,7 @@ export function LangtonsAntCanvas(props) {
     isAnimating,
     prerenderSteps,
     isResetting,
-    onResetComplete,
-    onWheel
+    onResetComplete
   } = props;
 
   const canvasRef = useRef(null);
