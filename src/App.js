@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { CssBaseline } from "@material-ui/core";
 
 import AppHeader from "./components/AppHeader";
@@ -10,6 +10,8 @@ import RulesDrawer from "./components/RulesDrawer";
 import { useWindowSize, useDebounce } from "./hooks";
 
 function App() {
+  const antCanvasRef = useRef();
+
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState({
     prerenderSteps: 0,
@@ -18,8 +20,6 @@ function App() {
 
   const [animSpeed, setAnimSpeed] = useState(32);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isResetting, setIsResetting] = useState(true);
-
   const [showRules, setShowRules] = useState(true);
   const [rules, setRules] = useState([
     { onColor: "#ffffff", nextColor: "#000000", rotation: "r", numSteps: 1 },
@@ -36,14 +36,22 @@ function App() {
     { onColor: "#53b4b7", nextColor: "#ffffff", rotation: "r", numSteps: 1 }
   ]);
 
+  // Handlers
+  const handleClickSettings = useCallback(() => setShowSettings(s => !s), [
+    setShowSettings
+  ]);
+  const handleClickRules = useCallback(() => setShowRules(s => !s), [
+    setShowRules
+  ]);
+
   const windowSize = useDebounce(useWindowSize(), 250);
 
   return (
     <>
       <CssBaseline />
       <AppHeader
-        handleClickSettings={() => setShowSettings(!showSettings)}
-        handleClickRules={() => setShowRules(!showRules)}
+        handleClickSettings={handleClickSettings}
+        handleClickRules={handleClickRules}
       />
       <SetttingsDrawer
         settings={settings}
@@ -52,16 +60,15 @@ function App() {
         onClose={() => setShowSettings(false)}
       />
       <LangtonsAntCanvas
+        ref={antCanvasRef}
         rules={rulesArrayToMap(rules)}
         cellType={settings.gridType}
-        defaultCellSize={3}
-        canvasWidth={windowSize.width}
-        canvasHeight={windowSize.height}
-        prerenderSteps={settings.prerenderSteps}
+        initialCellSize={3}
+        width={windowSize.width}
+        height={windowSize.height}
+        beginAtStep={settings.prerenderSteps}
         animInterval={animSpeed}
         isAnimating={isPlaying}
-        isResetting={isResetting}
-        onResetComplete={() => setIsResetting(false)}
       />
       <RulesDrawer
         open={showRules}
@@ -76,7 +83,7 @@ function App() {
         maxAnimInterval={100}
         animInterval={animSpeed}
         onAnimIntervalUpdate={(e, v) => setAnimSpeed(v)}
-        handleReset={() => setIsResetting(true)}
+        handleReset={() => antCanvasRef.current.reset()}
       />
     </>
   );

@@ -1,4 +1,11 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, {
+  useRef,
+  useEffect,
+  useState,
+  useImperativeHandle,
+  useCallback,
+  forwardRef
+} from "react";
 import { takeSteps } from "./langtonsAntUtils";
 import {
   drawCellsv2,
@@ -7,87 +14,136 @@ import {
   groupByColor
 } from "./drawingUtils";
 
-export function LangtonsAntCanvas(props) {
+export const LangtonsAntCanvas = forwardRef((props, ref) => {
   const {
     rules,
     cellType,
-    defaultCellSize,
-    canvasWidth,
-    canvasHeight,
-    animInterval,
+    initialCellSize,
+    beginAtStep,
     isAnimating,
-    prerenderSteps,
-    isResetting,
-    onResetComplete
+    animInterval,
+    width: canvasWidth,
+    height: canvasHeight
   } = props;
 
-  const canvasRef = useRef(null);
-  // Using ref instead of state due to imperative canvas drawing api, no need to trigger rerenders
-  const antState = useRef({ pos: [0, 0], dir: 0 });
+  console.log("render");
+  // Using refs instead of state due to imperative canvas drawing api, no need to trigger rerenders
+
+  // Simulation state pieces
+  const antStateRef = useRef({ pos: [0, 0], dir: 0 });
   const gridStateRef = useRef({});
+  const stepCountRef = useRef(0);
+  const currentCellTypeRef = useRef(cellType);
+  const currentRulesRef = useRef(rules);
 
-  const cellSize = useRef(2);
+  // Drawing related state and constants
+  const canvasRef = useRef();
+  const cellSizeRef = useRef(initialCellSize);
   const primaryColor = Object.keys(rules)[0];
-
   const cellsToRedraw = useRef({});
   const stepsPerFrame = 10;
   const maxCellsPerFrame = 1000 - stepsPerFrame;
   const prevTimestampRef = useRef(0);
 
-  const [dragData, setDragData] = useClickAndDragPan(canvasRef);
+  // Used for panning
+  const [dragData, setDragData] = useClickAndDragPan(canvasRef, {
+    x: Math.floor(canvasWidth / 2),
+    y: Math.floor(canvasHeight / 2)
+  });
 
-  //useResize(canvasRef, canvasWidth, canvasHeight);
+  /*** Imperative interface exposed on ref to LangtonsAntCanvas*/
 
-  // Handle reset of canvas and related state
+  // Reset method
+  // TODO: Fix memoization due to rules prop
+  const initialize = useCallback(() => {
+    // Clear canvas and reset transform
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    clearCanvas(ctx);
+    setDragData({
+      delta: { x: 0, y: 0 },
+      offset: {
+        x: Math.floor(canvas.width / 2),
+        y: Math.floor(canvas.height / 2)
+      }
+    });
+    ctx.setTransform(
+      1,
+      0,
+      0,
+      1,
+      Math.floor(canvas.width / 2),
+      Math.floor(canvas.height / 2)
+    );
+
+    // Reset simulation state
+    gridStateRef.current = {};
+    antStateRef.current = { pos: [0, 0], dir: 0 };
+
+    // Update currentCellTypeRef and currentRulesRef to match most recent props
+    currentCellTypeRef.current = cellType;
+    currentRulesRef.current = rules;
+
+    // Prerender up to beginAtStep
+    const { newPos, newDirIndex } = takeSteps(
+      beginAtStep,
+      antStateRef.current,
+      gridStateRef.current,
+      currentRulesRef.current,
+      currentCellTypeRef.current
+    );
+    antStateRef.current = { pos: newPos, dir: newDirIndex };
+    drawCellsv2(
+      canvas,
+      currentCellTypeRef.current,
+      groupByColor(gridStateRef.current),
+      cellSizeRef.current
+    );
+  }, [beginAtStep, cellType, rules, setDragData]);
+
+  // Set imperative methods
+  useImperativeHandle(
+    ref,
+    () => ({
+      reset: initialize
+    }),
+    [initialize]
+  );
+
+  /*** End of imperative interface */
+
+  // Handle resizing of canvas
   useEffect(() => {
-    if (isResetting) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      gridStateRef.current = {};
-      antState.current = { pos: [0, 0], dir: 0 };
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      clearCanvas(ctx);
-      setDragData({
-        delta: { x: 0, y: 0 },
-        offset: {
-          x: Math.floor(canvas.width / 2),
-          y: Math.floor(canvas.height / 2)
-        }
-      });
-      ctx.setTransform(
-        1,
-        0,
-        0,
-        1,
-        Math.floor(canvas.width / 2),
-        Math.floor(canvas.height / 2)
-      );
-      onResetComplete();
-    }
-  }, [isResetting, onResetComplete]);
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+    clearCanvas(ctx);
+    setDragData({
+      delta: { x: 0, y: 0 },
+      offset: {
+        x: Math.floor(canvasWidth / 2),
+        y: Math.floor(canvasHeight / 2)
+      }
+    });
+    ctx.setTransform(
+      1,
+      0,
+      0,
+      1,
+      Math.floor(canvasWidth / 2),
+      Math.floor(canvasHeight / 2)
+    );
+    drawCellsv2(
+      canvas,
+      currentCellTypeRef.current,
+      groupByColor(gridStateRef.current),
+      cellSizeRef.current
+    );
+  }, [canvasWidth, canvasHeight, setDragData]);
 
-  // Prerender steps
-  useEffect(() => {
-    if (isResetting) {
-      const canvas = canvasRef.current;
-      const { newPos, newDirIndex } = takeSteps(
-        prerenderSteps,
-        antState.current,
-        gridStateRef.current,
-        rules,
-        cellType
-      );
-      antState.current = { pos: newPos, dir: newDirIndex };
-      drawCellsv2(
-        canvas,
-        cellType,
-        groupByColor(gridStateRef.current),
-        cellSize.current
-      );
-    }
-  }, [prerenderSteps, rules, isResetting]);
-
-  // Handle canvas pan
+  // Handle canvas pannig
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -98,29 +154,29 @@ export function LangtonsAntCanvas(props) {
     ctx.globalCompositeOperation = "source-over";
     const leftEdge =
       dragData.delta.x < 0
-        ? canvasWidth + dragData.delta.x - dragData.offset.x
+        ? canvas.width + dragData.delta.x - dragData.offset.x
         : -dragData.offset.x;
 
     const topEdge =
       dragData.delta.y < 0
-        ? canvasHeight + dragData.delta.y - dragData.offset.y
+        ? canvas.height + dragData.delta.y - dragData.offset.y
         : -dragData.offset.y;
 
     const newlyVisibleX = cellsInRect(
       leftEdge,
       -dragData.offset.y,
       Math.abs(dragData.delta.x),
-      canvasHeight,
-      cellType,
-      cellSize.current
+      canvas.height,
+      currentCellTypeRef.current,
+      cellSizeRef.current
     );
     const newlyVisibleY = cellsInRect(
       -dragData.offset.x,
       topEdge,
-      canvasWidth,
+      canvas.width,
       Math.abs(dragData.delta.y),
-      cellType,
-      cellSize.current
+      currentCellTypeRef.current,
+      cellSizeRef.current
     );
     const newlyVisible = [...newlyVisibleX, ...newlyVisibleY];
 
@@ -132,31 +188,24 @@ export function LangtonsAntCanvas(props) {
     });
   }, [dragData, cellsToRedraw]);
 
-  // Handle zoom via cellSize change
+  // Handle zooming via cellSize change
   const handleWheel = e => {
     const canvas = canvasRef.current;
-    let newCellSize = cellSize.current;
+    let newCellSize = cellSizeRef.current;
     if (e.deltaY < 0) {
       newCellSize++;
     } else {
       newCellSize--;
     }
-    cellSize.current = newCellSize;
+    cellSizeRef.current = newCellSize;
     clearCanvas(canvas.getContext("2d"));
     drawCellsv2(
       canvas,
-      cellType,
+      currentCellTypeRef.current,
       groupByColor(gridStateRef.current),
-      cellSize.current
+      cellSizeRef.current
     );
   };
-
-  // useEffect(() => {
-  //   const canvas = canvasRef.current;
-  //   cellsInRect(0, 0, canvasWidth, canvasHeight);
-  //   clearCanvas(canvas.getContext("2d"));
-  //   drawCellsv2(canvas, cellType, groupByColor(gridStateRef.current), cellSize);
-  // }, [cellSize]);
 
   // Main animation logic
   useAnimationFrame(timestamp => {
@@ -166,12 +215,12 @@ export function LangtonsAntCanvas(props) {
     if (isAnimating && timestamp - prevTimestampRef.current >= animInterval) {
       const { newPos, newDirIndex, updatedCells } = takeSteps(
         stepsPerFrame,
-        antState.current,
+        antStateRef.current,
         gridStateRef.current,
-        rules,
-        cellType
+        currentRulesRef.current,
+        currentCellTypeRef.current
       );
-      antState.current = { pos: newPos, dir: newDirIndex };
+      antStateRef.current = { pos: newPos, dir: newDirIndex };
 
       updatedCells.forEach(pos => {
         const cellColor = gridStateRef.current[pos]
@@ -183,6 +232,7 @@ export function LangtonsAntCanvas(props) {
       });
 
       prevTimestampRef.current = timestamp;
+      stepCountRef.current += stepsPerFrame;
     }
 
     // Add up to maxCellsPerFrame to draw pool regardless of whether we are animating
@@ -203,41 +253,20 @@ export function LangtonsAntCanvas(props) {
       drawCount += 1;
     }
 
-    drawCellsv2(canvas, cellType, cellsToDraw, cellSize.current);
+    drawCellsv2(
+      canvas,
+      currentCellTypeRef.current,
+      cellsToDraw,
+      cellSizeRef.current
+    );
   });
 
   return (
     <div style={{ backgroundColor: primaryColor }}>
-      <canvas
-        ref={canvasRef}
-        width={canvasWidth}
-        height={canvasHeight}
-        onWheel={handleWheel}
-      />
+      <canvas ref={canvasRef} onWheel={handleWheel} />
     </div>
   );
-}
-
-function useResize(canvasRef, width, height) {
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    const oldWidth = canvas.width;
-    const oldHeight = canvas.height;
-    // Store current canvas data
-    const curImage = ctx.getImageData(0, 0, oldWidth, oldHeight);
-    // Resize
-    ctx.save();
-    canvas.width = width;
-    canvas.height = height;
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    ctx.restore();
-    // Redraw old data
-    const x = Math.floor((width - oldWidth) / 2);
-    const y = Math.floor((height - oldHeight) / 2);
-    ctx.putImageData(curImage, x, y);
-  }, [width, height]);
-}
+});
 
 function useAnimationFrame(callback) {
   const savedCallback = useRef();
@@ -258,10 +287,10 @@ function useAnimationFrame(callback) {
   }, []);
 }
 
-function useClickAndDragPan(elementRef, useMouseOut = false) {
+function useClickAndDragPan(elementRef, initialOffset, useMouseOut = false) {
   const [dragData, setDragData] = useState({
     delta: { x: 0, y: 0 },
-    offset: { x: 0, y: 0 }
+    offset: initialOffset
   });
   const isDragging = useRef(false);
   const lastPoint = useRef();
@@ -290,22 +319,24 @@ function useClickAndDragPan(elementRef, useMouseOut = false) {
       }
     };
 
-    elementRef.current.addEventListener("mousedown", onMouseDown);
+    const element = elementRef.current;
+
+    element.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mousemove", onMouseMove);
-    elementRef.current.addEventListener("mouseup", onMouseUp);
+    element.addEventListener("mouseup", onMouseUp);
     if (useMouseOut) {
-      elementRef.current.addEventListener("mouseout", onMouseUp);
+      element.addEventListener("mouseout", onMouseUp);
     }
 
     return () => {
-      elementRef.current.removeEventListener("mousedown", onMouseDown);
+      element.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mousemove", onMouseMove);
-      elementRef.current.removeEventListener("mouseup", onMouseUp);
+      element.removeEventListener("mouseup", onMouseUp);
       if (useMouseOut) {
-        elementRef.current.addEventListener("mouseout", onMouseUp);
+        element.addEventListener("mouseout", onMouseUp);
       }
     };
-  }, []);
+  }, [elementRef, useMouseOut]);
 
   return [dragData, setDragData];
 }
