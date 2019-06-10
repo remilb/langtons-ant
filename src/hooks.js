@@ -47,3 +47,33 @@ export function useDebounce(value, interval) {
 
   return debouncedValue;
 }
+
+export function useRAFThrottle(value) {
+  const [throttledValue, setThrottledValue] = useState(value);
+  const animationFrameId = useRef(0);
+
+  useEffect(() => {
+    // This is safe on first call with animationFrameId.current = 0, as RAF callback ids are nonzero
+    cancelAnimationFrame(animationFrameId.current);
+    animationFrameId.current = requestAnimationFrame(() =>
+      setThrottledValue(value)
+    );
+  }, [value]);
+
+  return throttledValue;
+}
+
+export function useRAFThrottledState(initialValue) {
+  const [throttledState, setThrottledState] = useState(initialValue);
+  const animationFrameId = useRef(0);
+
+  const throttledSetter = newState => {
+    // This is safe on first call with animationFrameId.current = 0, as RAF callback ids are nonzero
+    cancelAnimationFrame(animationFrameId.current);
+    animationFrameId.current = requestAnimationFrame(() =>
+      setThrottledState(newState)
+    );
+  };
+
+  return [throttledState, throttledSetter];
+}
