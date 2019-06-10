@@ -10,7 +10,8 @@ import { takeSteps } from "./langtonsAntUtils";
 import {
   drawCellsv2,
   clearCanvas,
-  cellsInRect,
+  shiftCanvas,
+  cellsVisibleAfterShift,
   groupByColor
 } from "./drawingUtils";
 
@@ -26,7 +27,6 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
     height: canvasHeight
   } = props;
 
-  console.log("render");
   // Using refs instead of state due to imperative canvas drawing api, no need to trigger rerenders
 
   // Simulation state pieces
@@ -39,8 +39,10 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
   // Drawing related state and constants
   const canvasRef = useRef();
   const cellSizeRef = useRef(initialCellSize);
+  // TODO: This color thing is busted right now
   const primaryColor = Object.keys(rules)[0];
-  const cellsToRedraw = useRef({});
+  const dirtyCells = useRef({});
+  const cellsToRedraw = useRef([]);
   const stepsPerFrame = 10;
   const maxCellsPerFrame = 1000 - stepsPerFrame;
   const prevTimestampRef = useRef(0);
@@ -143,50 +145,32 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
     );
   }, [canvasWidth, canvasHeight, setDragData]);
 
-  // Handle canvas pannig
+  // Handle canvas panning
+  // TODO: This shouldn't run anymore than once per frame, right now it can run up to four times per frame!
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    ctx.globalCompositeOperation = "copy";
-    ctx.setTransform(1, 0, 0, 1, dragData.delta.x, dragData.delta.y);
-    ctx.drawImage(canvas, 0, 0);
+    shiftCanvas(ctx, dragData.delta.x, dragData.delta.y);
     ctx.setTransform(1, 0, 0, 1, dragData.offset.x, dragData.offset.y);
-    ctx.globalCompositeOperation = "source-over";
-    const leftEdge =
-      dragData.delta.x < 0
-        ? canvas.width + dragData.delta.x - dragData.offset.x
-        : -dragData.offset.x;
 
-    const topEdge =
-      dragData.delta.y < 0
-        ? canvas.height + dragData.delta.y - dragData.offset.y
-        : -dragData.offset.y;
-
-    const newlyVisibleX = cellsInRect(
-      leftEdge,
-      -dragData.offset.y,
-      Math.abs(dragData.delta.x),
-      canvas.height,
+    // Calculate cells that have "slid" into view
+    const newlyVisible = cellsVisibleAfterShift(
+      ctx,
+      dragData.delta.x,
+      dragData.delta.y,
+      dragData.offset,
       currentCellTypeRef.current,
       cellSizeRef.current
     );
-    const newlyVisibleY = cellsInRect(
-      -dragData.offset.x,
-      topEdge,
-      canvas.width,
-      Math.abs(dragData.delta.y),
-      currentCellTypeRef.current,
-      cellSizeRef.current
-    );
-    const newlyVisible = [...newlyVisibleX, ...newlyVisibleY];
 
     // Add newly visible cells to draw queue
     newlyVisible.forEach(pos => {
-      if (pos in gridStateRef.current) {
-        cellsToRedraw.current[pos] = pos;
+      if (dirtyCells.current[pos] === false) {
+        cellsToRedraw.current.push(pos);
+        dirtyCells.current[pos] = true;
       }
     });
-  }, [dragData, cellsToRedraw]);
+  }, [dragData]);
 
   // Handle zooming via cellSize change
   const handleWheel = e => {
@@ -211,6 +195,9 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
   useAnimationFrame(timestamp => {
     const canvas = canvasRef.current;
     const cellsToDraw = {};
+    for (const color in currentRulesRef.current) {
+      cellsToDraw[color] = [];
+    }
     // Compute next steps and add to draw pool if we are animating and animInterval has elapsed
     if (isAnimating && timestamp - prevTimestampRef.current >= animInterval) {
       const { newPos, newDirIndex, updatedCells } = takeSteps(
@@ -226,9 +213,9 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
         const cellColor = gridStateRef.current[pos]
           ? gridStateRef.current[pos].color
           : primaryColor;
-        cellColor in cellsToDraw
-          ? cellsToDraw[cellColor].push(pos)
-          : (cellsToDraw[cellColor] = [pos]);
+        cellsToDraw[cellColor].push(pos);
+        // Add to dirtyCells map as well
+        dirtyCells.current[pos] = false;
       });
 
       prevTimestampRef.current = timestamp;
@@ -237,21 +224,20 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
 
     // Add up to maxCellsPerFrame to draw pool regardless of whether we are animating
     // These include cells that need to be redrawn as part of a pan
+    // TODO: This is hacky
     let drawCount = 0;
-    for (let [key, pos] of Object.entries(cellsToRedraw.current)) {
+    for (let pos of cellsToRedraw.current) {
       if (drawCount === maxCellsPerFrame) {
         break;
       }
-      const cellColor = gridStateRef.current[key]
-        ? gridStateRef.current[key].color
-        : primaryColor;
 
-      cellColor in cellsToDraw
-        ? cellsToDraw[cellColor].push(pos)
-        : (cellsToDraw[cellColor] = [pos]);
-      delete cellsToRedraw.current[key];
+      const cellColor = gridStateRef.current[pos].color;
+      cellsToDraw[cellColor].push(pos);
+      dirtyCells.current[pos] = false;
       drawCount += 1;
     }
+
+    cellsToRedraw.current = cellsToRedraw.current.slice(drawCount);
 
     drawCellsv2(
       canvas,

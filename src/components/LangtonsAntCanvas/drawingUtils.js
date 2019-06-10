@@ -62,6 +62,48 @@ export function clearCanvas(ctx) {
   ctx.restore();
 }
 
+export function shiftCanvas(ctx, dx, dy) {
+  ctx.save();
+  ctx.globalCompositeOperation = "copy";
+  ctx.setTransform(1, 0, 0, 1, dx, dy);
+  ctx.drawImage(ctx.canvas, 0, 0);
+  ctx.restore();
+}
+
+export function cellsVisibleAfterShift(
+  ctx,
+  dx,
+  dy,
+  currentOffset,
+  cellType,
+  cellSize
+) {
+  const leftEdge =
+    dx < 0 ? ctx.canvas.width + dx - currentOffset.x : -currentOffset.x;
+
+  const topEdge =
+    dy < 0 ? ctx.canvas.height + dy - currentOffset.y : -currentOffset.y;
+
+  const newlyVisibleX = cellsInRect(
+    leftEdge,
+    -currentOffset.y,
+    Math.abs(dx),
+    ctx.canvas.height,
+    cellType,
+    cellSize
+  );
+  const newlyVisibleY = cellsInRect(
+    dx < 0 ? -currentOffset.x : -currentOffset.x + dx,
+    topEdge,
+    ctx.canvas.width - Math.abs(dx),
+    Math.abs(dy),
+    cellType,
+    cellSize
+  );
+
+  return [...newlyVisibleX, ...newlyVisibleY];
+}
+
 export function cellsInRect(x, y, w, h, cellType, cellSize) {
   return cellType === "square"
     ? squareCellsInRect(x, y, w, h, cellSize)
