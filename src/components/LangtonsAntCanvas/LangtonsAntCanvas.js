@@ -14,6 +14,7 @@ import {
   cellsVisibleAfterShift,
   groupByColor
 } from "./drawingUtils";
+import PanningWorker from "./panning.worker.js";
 
 export const LangtonsAntCanvas = forwardRef((props, ref) => {
   const {
@@ -48,6 +49,7 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
   const prevTimestampRef = useRef(0);
 
   // Used for panning
+  const panningWorkerRef = usePanningWebWorker();
   const [dragData, setDragData] = useClickAndDragPan(canvasRef, {
     x: Math.floor(canvasWidth / 2),
     y: Math.floor(canvasHeight / 2)
@@ -57,6 +59,7 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
 
   // Reset method
   // TODO: Fix memoization due to rules prop
+  // TODO: Also will probably need to use worker.terminate() in here to prevent stale messages from bubbling through to the new run
   const initialize = useCallback(() => {
     // Clear canvas and reset transform
     const canvas = canvasRef.current;
@@ -88,7 +91,7 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
     currentRulesRef.current = rules;
 
     // Prerender up to beginAtStep
-    const { newPos, newDirIndex } = takeSteps(
+    const { newPos, newDirIndex, updatedCells } = takeSteps(
       beginAtStep,
       antStateRef.current,
       gridStateRef.current,
@@ -96,6 +99,17 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
       currentCellTypeRef.current
     );
     antStateRef.current = { pos: newPos, dir: newDirIndex };
+
+    // Reset panning worker
+    panningWorkerRef.current.postMessage({ action: "RESET" });
+    cellsToRedraw.current = [];
+
+    // Inform panning worker of visited cells
+    panningWorkerRef.current.postMessage({
+      action: "UPDATE_VISITED_CELLS",
+      payload: updatedCells
+    });
+
     drawCellsv2(
       canvas,
       currentCellTypeRef.current,
@@ -153,22 +167,23 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
     shiftCanvas(ctx, dragData.delta.x, dragData.delta.y);
     ctx.setTransform(1, 0, 0, 1, dragData.offset.x, dragData.offset.y);
 
-    // Calculate cells that have "slid" into view
-    const newlyVisible = cellsVisibleAfterShift(
-      ctx,
-      dragData.delta.x,
-      dragData.delta.y,
-      dragData.offset,
-      currentCellTypeRef.current,
-      cellSizeRef.current
-    );
+    panningWorkerRef.current.onmessage = e => {
+      const newlyVisible = e.data;
+      cellsToRedraw.current.push(newlyVisible);
+    };
 
-    // Add newly visible cells to draw queue
-    newlyVisible.forEach(pos => {
-      if (dirtyCells.current[pos] === false) {
-        cellsToRedraw.current.push(pos);
-        dirtyCells.current[pos] = true;
-      }
+    // Calculate cells that have "slid" into view
+    panningWorkerRef.current.postMessage({
+      action: "PANNING",
+      payload: [
+        ctx.canvas.width,
+        ctx.canvas.height,
+        dragData.delta.x,
+        dragData.delta.y,
+        dragData.offset,
+        currentCellTypeRef.current,
+        cellSizeRef.current
+      ]
     });
   }, [dragData]);
 
@@ -192,7 +207,7 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
   };
 
   // Main animation logic
-  useAnimationFrame(timestamp => {
+  useAnimationLoop(timestamp => {
     const canvas = canvasRef.current;
     const cellsToDraw = {};
     for (const color in currentRulesRef.current) {
@@ -218,6 +233,12 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
         dirtyCells.current[pos] = false;
       });
 
+      // Tell panning worker about newly visited cells
+      panningWorkerRef.current.postMessage({
+        action: "UPDATE_VISITED_CELLS",
+        payload: updatedCells
+      });
+
       prevTimestampRef.current = timestamp;
       stepCountRef.current += stepsPerFrame;
     }
@@ -225,19 +246,30 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
     // Add up to maxCellsPerFrame to draw pool regardless of whether we are animating
     // These include cells that need to be redrawn as part of a pan
     // TODO: This is hacky
-    let drawCount = 0;
-    for (let pos of cellsToRedraw.current) {
-      if (drawCount === maxCellsPerFrame) {
-        break;
-      }
+    // let drawCount = 0;
+    // for (let pos of cellsToRedraw.current) {
+    //   if (drawCount === maxCellsPerFrame) {
+    //     break;
+    //   }
 
+    //   const cellColor = gridStateRef.current[pos].color;
+    //   cellsToDraw[cellColor].push(pos);
+    //   dirtyCells.current[pos] = false;
+    //   drawCount += 1;
+    // }
+
+    const redrawBatch =
+      cellsToRedraw.current.length > 0 ? cellsToRedraw.current.shift() : [];
+    for (let pos of redrawBatch) {
       const cellColor = gridStateRef.current[pos].color;
       cellsToDraw[cellColor].push(pos);
-      dirtyCells.current[pos] = false;
-      drawCount += 1;
     }
 
-    cellsToRedraw.current = cellsToRedraw.current.slice(drawCount);
+    panningWorkerRef.current.postMessage({
+      action: "UPDATE_REPAINTED_CELLS",
+      payload: redrawBatch
+    });
+    // cellsToRedraw.current = cellsToRedraw.current.slice(drawCount);
 
     drawCellsv2(
       canvas,
@@ -254,7 +286,7 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
   );
 });
 
-function useAnimationFrame(callback) {
+function useAnimationLoop(callback) {
   const savedCallback = useRef();
   const frameRef = useRef();
 
@@ -325,4 +357,13 @@ function useClickAndDragPan(elementRef, initialOffset, useMouseOut = false) {
   }, [elementRef, useMouseOut]);
 
   return [dragData, setDragData];
+}
+
+function usePanningWebWorker() {
+  const panningWorker = useRef();
+  useEffect(() => {
+    panningWorker.current = new PanningWorker();
+    return () => panningWorker.current.terminate();
+  }, []);
+  return panningWorker;
 }
