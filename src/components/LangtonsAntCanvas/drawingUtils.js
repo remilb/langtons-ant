@@ -71,7 +71,8 @@ export function shiftCanvas(ctx, dx, dy) {
 }
 
 export function cellsVisibleAfterShift(
-  ctx,
+  canvasWidth,
+  canvasHeight,
   dx,
   dy,
   currentOffset,
@@ -79,23 +80,23 @@ export function cellsVisibleAfterShift(
   cellSize
 ) {
   const leftEdge =
-    dx < 0 ? ctx.canvas.width + dx - currentOffset.x : -currentOffset.x;
+    dx < 0 ? canvasWidth + dx - currentOffset.x : -currentOffset.x;
 
   const topEdge =
-    dy < 0 ? ctx.canvas.height + dy - currentOffset.y : -currentOffset.y;
+    dy < 0 ? canvasHeight + dy - currentOffset.y : -currentOffset.y;
 
   const newlyVisibleX = cellsInRect(
     leftEdge,
     -currentOffset.y,
     Math.abs(dx),
-    ctx.canvas.height,
+    canvasHeight,
     cellType,
     cellSize
   );
   const newlyVisibleY = cellsInRect(
     dx < 0 ? -currentOffset.x : -currentOffset.x + dx,
     topEdge,
-    ctx.canvas.width - Math.abs(dx),
+    canvasWidth - Math.abs(dx),
     Math.abs(dy),
     cellType,
     cellSize
