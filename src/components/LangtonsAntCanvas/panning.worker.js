@@ -1,4 +1,7 @@
-import { cellsVisibleAfterShift } from "./drawingUtils";
+import {
+  cellsVisibleAfterShift,
+  canvasCoordsFromCellCoords
+} from "./drawingUtils";
 
 // Nested look up table allowing fast look up of wether or not a cell has been visited.
 // This allows filtering out cells that have never been visited from panning results.
@@ -8,16 +11,26 @@ import { cellsVisibleAfterShift } from "./drawingUtils";
 // This can very easily arise from rapid back and forth pannning
 let visitedCells = {};
 
+// Bounding box for region of canvas that has been painted. Keeping this up to date allows
+// optimization of panning. When calculating cellsVisibleAfterShift(), rectangles can be cropped
+// to the bounding box. Many rulesets produce near-convex structures that can be tightly bounded.
+let boundingBox = { top: 0, left: 0, bottom: 0, right: 0 };
+
 // TODO: needs to know about resetting grid state as well
 onmessage = e => {
   if (e.data.action === "UPDATE_VISITED_CELLS") {
-    updateVisitedCells(e.data.payload);
+    updateVisitedCells(
+      e.data.payload.cells,
+      e.data.payload.cellType,
+      e.data.payload.cellSize
+    );
   } else if (e.data.action === "PANNING") {
     handlePanningEvent(...e.data.payload);
   } else if (e.data.action === "UPDATE_REPAINTED_CELLS") {
     unqueueCells(e.data.payload);
   } else if (e.data.action === "RESET") {
     visitedCells = {};
+    boundingBox = { top: 0, left: 0, bottom: 0, right: 0 };
   }
 };
 
@@ -37,15 +50,16 @@ function handlePanningEvent(
     dy,
     currentOffset,
     cellType,
-    cellSize
+    cellSize,
+    boundingBox
   );
   const filteredCells = newCells.filter(
     cell => isCellVisited(cell) && !isAlreadyQueued(cell)
   );
-  queueCells(filteredCells);
 
   if (filteredCells.length > 0) {
-    self.postMessage(filteredCells);
+    queueCells(filteredCells);
+    self.postMessage(filteredCells); // eslint-disable-line no-restricted-globals
   }
 }
 
@@ -61,9 +75,10 @@ function unqueueCells(cells) {
   }
 }
 
-function updateVisitedCells(newlyVisitedCells) {
+function updateVisitedCells(newlyVisitedCells, cellType, cellSize) {
   for (const cell of newlyVisitedCells) {
     setCellVisited(cell);
+    updateBoundingBox(cell, cellType, cellSize);
   }
 }
 
@@ -77,4 +92,20 @@ function isCellVisited(cell) {
 
 function isAlreadyQueued(cell) {
   return visitedCells[cell].queued;
+}
+
+function updateBoundingBox(cell, cellType, cellSize) {
+  const canvasCoords = canvasCoordsFromCellCoords(cellType, cell, cellSize);
+  // We need to pad a little bit to account for the canvasCoords of a cell being
+  // in the center of hex cells and upper left corner of square cells
+  if (canvasCoords[0] - cellSize < boundingBox.left) {
+    boundingBox.left = canvasCoords[0] - cellSize;
+  } else if (canvasCoords[0] + cellSize > boundingBox.right) {
+    boundingBox.right = canvasCoords[0] + cellSize;
+  }
+  if (canvasCoords[1] - cellSize < boundingBox.top) {
+    boundingBox.top = canvasCoords[1] - cellSize;
+  } else if (canvasCoords[1] + cellSize > boundingBox.bottom) {
+    boundingBox.bottom = canvasCoords[1] + cellSize;
+  }
 }
