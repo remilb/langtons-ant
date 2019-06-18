@@ -15,6 +15,7 @@ import {
   groupByColor
 } from "./drawingUtils";
 import PanningWorker from "./panning.worker.js";
+import { useRAFThrottle } from "../../hooks";
 
 export const LangtonsAntCanvas = forwardRef((props, ref) => {
   const {
@@ -42,7 +43,6 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
   const cellSizeRef = useRef(initialCellSize);
   // TODO: This color thing is busted right now
   const primaryColor = Object.keys(rules)[0];
-  const dirtyCells = useRef({});
   const cellsToRedraw = useRef([]);
   const stepsPerFrame = 10;
   const maxCellsPerFrame = 1000 - stepsPerFrame;
@@ -54,6 +54,67 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
     x: Math.floor(canvasWidth / 2),
     y: Math.floor(canvasHeight / 2)
   });
+  const throttledDragData = useRAFThrottle(dragData);
+  const prevThrottledDragData = usePrevious(throttledDragData);
+
+  // Main animation loop callback
+  const animLoop = timestamp => {
+    const canvas = canvasRef.current;
+    const cellsToDraw = {};
+    for (const color in currentRulesRef.current) {
+      cellsToDraw[color] = [];
+    }
+    // Compute next steps and add to draw pool if we are animating and animInterval has elapsed
+    if (isAnimating && timestamp - prevTimestampRef.current >= animInterval) {
+      const { newPos, newDirIndex, updatedCells } = takeSteps(
+        stepsPerFrame,
+        antStateRef.current,
+        gridStateRef.current,
+        currentRulesRef.current,
+        currentCellTypeRef.current
+      );
+      antStateRef.current = { pos: newPos, dir: newDirIndex };
+
+      updatedCells.forEach(pos => {
+        const cellColor = gridStateRef.current[pos]
+          ? gridStateRef.current[pos].color
+          : primaryColor;
+        cellsToDraw[cellColor].push(pos);
+      });
+
+      // Tell panning worker about newly visited cells
+      panningWorkerRef.current.postMessage({
+        action: "UPDATE_VISITED_CELLS",
+        payload: {
+          cells: updatedCells,
+          cellType: currentCellTypeRef.current,
+          cellSize: cellSizeRef.current
+        }
+      });
+
+      prevTimestampRef.current = timestamp;
+      stepCountRef.current += stepsPerFrame;
+    }
+
+    const redrawBatch =
+      cellsToRedraw.current.length > 0 ? cellsToRedraw.current.shift() : [];
+    for (let pos of redrawBatch) {
+      const cellColor = gridStateRef.current[pos].color;
+      cellsToDraw[cellColor].push(pos);
+    }
+
+    panningWorkerRef.current.postMessage({
+      action: "UPDATE_REPAINTED_CELLS",
+      payload: redrawBatch
+    });
+
+    drawCellsv2(
+      canvas,
+      currentCellTypeRef.current,
+      cellsToDraw,
+      cellSizeRef.current
+    );
+  };
 
   /*** Imperative interface exposed on ref to LangtonsAntCanvas*/
 
@@ -107,7 +168,11 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
     // Inform panning worker of visited cells
     panningWorkerRef.current.postMessage({
       action: "UPDATE_VISITED_CELLS",
-      payload: updatedCells
+      payload: {
+        cells: updatedCells,
+        cellType: currentCellTypeRef.current,
+        cellSize: cellSizeRef.current
+      }
     });
 
     drawCellsv2(
@@ -164,8 +229,19 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    shiftCanvas(ctx, dragData.delta.x, dragData.delta.y);
-    ctx.setTransform(1, 0, 0, 1, dragData.offset.x, dragData.offset.y);
+    const [deltaX, deltaY] = [
+      throttledDragData.offset.x - prevThrottledDragData.offset.x,
+      throttledDragData.offset.y - prevThrottledDragData.offset.y
+    ];
+    shiftCanvas(ctx, deltaX, deltaY);
+    ctx.setTransform(
+      1,
+      0,
+      0,
+      1,
+      throttledDragData.offset.x,
+      throttledDragData.offset.y
+    );
 
     panningWorkerRef.current.onmessage = e => {
       const newlyVisible = e.data;
@@ -178,14 +254,14 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
       payload: [
         ctx.canvas.width,
         ctx.canvas.height,
-        dragData.delta.x,
-        dragData.delta.y,
-        dragData.offset,
+        deltaX,
+        deltaY,
+        throttledDragData.offset,
         currentCellTypeRef.current,
         cellSizeRef.current
       ]
     });
-  }, [dragData]);
+  }, [throttledDragData, prevThrottledDragData, panningWorkerRef]);
 
   // Handle zooming via cellSize change
   const handleWheel = e => {
@@ -206,78 +282,8 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
     );
   };
 
-  // Main animation logic
-  useAnimationLoop(timestamp => {
-    const canvas = canvasRef.current;
-    const cellsToDraw = {};
-    for (const color in currentRulesRef.current) {
-      cellsToDraw[color] = [];
-    }
-    // Compute next steps and add to draw pool if we are animating and animInterval has elapsed
-    if (isAnimating && timestamp - prevTimestampRef.current >= animInterval) {
-      const { newPos, newDirIndex, updatedCells } = takeSteps(
-        stepsPerFrame,
-        antStateRef.current,
-        gridStateRef.current,
-        currentRulesRef.current,
-        currentCellTypeRef.current
-      );
-      antStateRef.current = { pos: newPos, dir: newDirIndex };
-
-      updatedCells.forEach(pos => {
-        const cellColor = gridStateRef.current[pos]
-          ? gridStateRef.current[pos].color
-          : primaryColor;
-        cellsToDraw[cellColor].push(pos);
-        // Add to dirtyCells map as well
-        dirtyCells.current[pos] = false;
-      });
-
-      // Tell panning worker about newly visited cells
-      panningWorkerRef.current.postMessage({
-        action: "UPDATE_VISITED_CELLS",
-        payload: updatedCells
-      });
-
-      prevTimestampRef.current = timestamp;
-      stepCountRef.current += stepsPerFrame;
-    }
-
-    // Add up to maxCellsPerFrame to draw pool regardless of whether we are animating
-    // These include cells that need to be redrawn as part of a pan
-    // TODO: This is hacky
-    // let drawCount = 0;
-    // for (let pos of cellsToRedraw.current) {
-    //   if (drawCount === maxCellsPerFrame) {
-    //     break;
-    //   }
-
-    //   const cellColor = gridStateRef.current[pos].color;
-    //   cellsToDraw[cellColor].push(pos);
-    //   dirtyCells.current[pos] = false;
-    //   drawCount += 1;
-    // }
-
-    const redrawBatch =
-      cellsToRedraw.current.length > 0 ? cellsToRedraw.current.shift() : [];
-    for (let pos of redrawBatch) {
-      const cellColor = gridStateRef.current[pos].color;
-      cellsToDraw[cellColor].push(pos);
-    }
-
-    panningWorkerRef.current.postMessage({
-      action: "UPDATE_REPAINTED_CELLS",
-      payload: redrawBatch
-    });
-    // cellsToRedraw.current = cellsToRedraw.current.slice(drawCount);
-
-    drawCellsv2(
-      canvas,
-      currentCellTypeRef.current,
-      cellsToDraw,
-      cellSizeRef.current
-    );
-  });
+  // Run animation loop
+  useAnimationLoop(animLoop);
 
   return (
     <div style={{ backgroundColor: primaryColor }}>
@@ -307,7 +313,6 @@ function useAnimationLoop(callback) {
 
 function useClickAndDragPan(elementRef, initialOffset, useMouseOut = false) {
   const [dragData, setDragData] = useState({
-    delta: { x: 0, y: 0 },
     offset: initialOffset
   });
   const isDragging = useRef(false);
@@ -325,7 +330,6 @@ function useClickAndDragPan(elementRef, initialOffset, useMouseOut = false) {
         const deltaY = e.clientY - lastPoint.current.y;
         lastPoint.current = { x: e.clientX, y: e.clientY };
         setDragData(s => ({
-          delta: { x: deltaX, y: deltaY },
           offset: { x: s.offset.x + deltaX, y: s.offset.y + deltaY }
         }));
       }
@@ -366,4 +370,12 @@ function usePanningWebWorker() {
     return () => panningWorker.current.terminate();
   }, []);
   return panningWorker;
+}
+
+function usePrevious(value) {
+  const ref = useRef(value);
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref.current;
 }
