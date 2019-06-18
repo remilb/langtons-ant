@@ -2,13 +2,7 @@ export function drawCells(canvas, cellType, cellData, cellSize) {
   const context = canvas.getContext("2d");
   for (let pos in cellData) {
     const cellPos = pos.split(",");
-    const canvasPos = canvasCoordsFromCellCoords(
-      cellType,
-      canvas.width,
-      canvas.height,
-      cellPos,
-      cellSize
-    );
+    const canvasPos = canvasCoordsFromCellCoords(cellType, cellPos, cellSize);
     context.fillStyle = cellData[pos];
     drawCell(context, cellType, canvasPos, cellSize);
   }
@@ -21,13 +15,7 @@ export function drawCellsv2(canvas, cellType, cellDataByColor, cellSize) {
     const cellsToDraw = cellDataByColor[color];
     context.beginPath();
     for (const pos of cellsToDraw) {
-      const canvasPos = canvasCoordsFromCellCoords(
-        cellType,
-        canvas.width,
-        canvas.height,
-        pos,
-        cellSize
-      );
+      const canvasPos = canvasCoordsFromCellCoords(cellType, pos, cellSize);
       drawCell(context, cellType, canvasPos, cellSize);
     }
     context.fillStyle = color;
@@ -77,32 +65,105 @@ export function cellsVisibleAfterShift(
   dy,
   currentOffset,
   cellType,
-  cellSize
+  cellSize,
+  boundingBox
 ) {
-  const leftEdge =
-    dx < 0 ? canvasWidth + dx - currentOffset.x : -currentOffset.x;
+  const horizPanBox = {
+    top: -currentOffset.y,
+    left: dx < 0 ? canvasWidth + dx - currentOffset.x : -currentOffset.x,
+    width: Math.abs(dx),
+    height: canvasHeight
+  };
+  const vertPanBox = {
+    top: dy < 0 ? canvasHeight + dy - currentOffset.y : -currentOffset.y,
+    left: dx < 0 ? -currentOffset.x : -currentOffset.x + dx,
+    width: canvasWidth - Math.abs(dx),
+    height: Math.abs(dy)
+  };
 
-  const topEdge =
-    dy < 0 ? canvasHeight + dy - currentOffset.y : -currentOffset.y;
+  const horizIntersect = boxIntersect(boundingBox, {
+    ...horizPanBox,
+    right: horizPanBox.left + horizPanBox.width,
+    bottom: horizPanBox.top + horizPanBox.height
+  });
+  const vertIntersect = boxIntersect(boundingBox, {
+    ...vertPanBox,
+    right: vertPanBox.left + vertPanBox.width,
+    bottom: vertPanBox.top + vertPanBox.height
+  });
 
-  const newlyVisibleX = cellsInRect(
-    leftEdge,
-    -currentOffset.y,
-    Math.abs(dx),
-    canvasHeight,
-    cellType,
-    cellSize
-  );
-  const newlyVisibleY = cellsInRect(
-    dx < 0 ? -currentOffset.x : -currentOffset.x + dx,
-    topEdge,
-    canvasWidth - Math.abs(dx),
-    Math.abs(dy),
-    cellType,
-    cellSize
-  );
+  const newlyVisibleX = horizIntersect
+    ? cellsInRect(
+        horizIntersect.left,
+        horizIntersect.top,
+        horizIntersect.right - horizIntersect.left,
+        horizIntersect.bottom - horizIntersect.top,
+        cellType,
+        cellSize
+      )
+    : [];
+  const newlyVisibleY = vertIntersect
+    ? cellsInRect(
+        vertIntersect.left,
+        vertIntersect.top,
+        vertIntersect.right - vertIntersect.left,
+        vertIntersect.bottom - vertIntersect.top,
+        cellType,
+        cellSize
+      )
+    : [];
+
+  // const newlyVisibleX = cellsInRect(
+  //   horizPanBox.left,
+  //   horizPanBox.top,
+  //   horizPanBox.width,
+  //   horizPanBox.height,
+  //   cellType,
+  //   cellSize
+  // );
+
+  // const newlyVisibleY = cellsInRect(
+  //   vertPanBox.left,
+  //   vertPanBox.top,
+  //   vertPanBox.width,
+  //   vertPanBox.height,
+  //   cellType,
+  //   cellSize
+  // );
 
   return [...newlyVisibleX, ...newlyVisibleY];
+}
+
+function boxIntersect(box1, box2) {
+  const xIntersect = intervalIntersect(
+    [box1.left, box1.right],
+    [box2.left, box2.right]
+  );
+  const yIntersect = intervalIntersect(
+    [box1.top, box1.bottom],
+    [box2.top, box2.bottom]
+  );
+  if (xIntersect && yIntersect) {
+    return {
+      top: yIntersect[0],
+      left: xIntersect[0],
+      right: xIntersect[1],
+      bottom: yIntersect[1]
+    };
+  } else {
+    return false;
+  }
+}
+
+function intervalIntersect(interval1, interval2) {
+  if (interval2[0] > interval1[1] || interval1[0] > interval2[1]) {
+    return false;
+  } else {
+    return [
+      Math.max(interval1[0], interval2[0]),
+      Math.min(interval1[1], interval2[1])
+    ];
+  }
 }
 
 export function cellsInRect(x, y, w, h, cellType, cellSize) {
@@ -114,13 +175,13 @@ export function cellsInRect(x, y, w, h, cellType, cellSize) {
 function squareCellsInRect(x, y, w, h, cellSize) {
   const cells = [];
   const topLeftCorner = squareGridCoordsFromCanvas(x, y, cellSize);
-  const widthInCells = w / cellSize;
-  const heightInCells = h / cellSize;
-  const margin = 1;
+  // +1 ensures no partial cells on right and bottom borders of rect are missed
+  const widthInCells = w / cellSize + 1;
+  const heightInCells = h / cellSize + 1;
 
   cells.push(topLeftCorner);
-  for (let xs = -margin; xs < widthInCells + margin; xs += 1) {
-    for (let ys = -margin; ys < heightInCells + margin; ys += 1) {
+  for (let xs = 0; xs < widthInCells; xs += 1) {
+    for (let ys = 0; ys < heightInCells; ys += 1) {
       cells.push([topLeftCorner[0] + xs, topLeftCorner[1] + ys]);
     }
   }
@@ -129,23 +190,28 @@ function squareCellsInRect(x, y, w, h, cellSize) {
 }
 
 function hexCellsInRect(x, y, w, h, cellSize) {
+  // TODO: Ewwww.....
   const cells = [];
-  const topLeftCorner = hexCoordsFromCanvas(x, y, cellSize);
-  const widthInCells = w / cellSize;
+  const topLeftCell = hexCoordsFromCanvas(x, y, cellSize);
+  const hexCenter = canvasCoordsFromAxialHex(topLeftCell, cellSize);
+  // +2 ensures no partial cells on right border of rect are missed
+  const widthInCells = Math.ceil(w / (cellSize * Math.sqrt(3))) + 1;
   const heightInCells = h / cellSize;
-  const margin = 1;
 
-  cells.push(topLeftCorner);
-  let xStart = 0;
-  for (let ys = -margin; ys < heightInCells + margin; ys += 1) {
-    xStart = ys % 2 === 0 ? xStart - 1 : xStart;
+  let shouldZag = hexCenter[0] - topLeftCell[0] > 0;
+  let xStart = topLeftCell[0];
+
+  cells.push(topLeftCell);
+  for (let ys = -1; ys < heightInCells + 1; ys += 1) {
     for (
-      let xs = xStart - margin;
-      xs < widthInCells + xStart + margin;
+      let xs = xStart;
+      xs < widthInCells + xStart + Number(!shouldZag);
       xs += 1
     ) {
-      cells.push([topLeftCorner[0] + xs, topLeftCorner[1] + ys]);
+      cells.push([xs, topLeftCell[1] + ys]);
     }
+    xStart = shouldZag ? xStart - 1 : xStart;
+    shouldZag = !shouldZag;
   }
 
   return cells;
@@ -153,13 +219,7 @@ function hexCellsInRect(x, y, w, h, cellSize) {
 
 export function getCellColorFromCanvas(canvas, cellType, cellPos, cellSize) {
   const context = canvas.getContext("2d");
-  const canvasPos = canvasCoordsFromCellCoords(
-    cellType,
-    canvas.width,
-    canvas.height,
-    cellPos,
-    cellSize
-  );
+  const canvasPos = canvasCoordsFromCellCoords(cellType, cellPos, cellSize);
   const cellSample = context.getImageData(canvasPos[0], canvasPos[1], 1, 1);
   const [r, g, b] = cellSample.data;
   return rgbToHex(r, g, b);
@@ -193,31 +253,15 @@ function hexCorner(center, size, i) {
   ];
 }
 
-function canvasCoordsFromCellCoords(
-  cellType,
-  canvasWidth,
-  canvasHeight,
-  cellPos,
-  cellSize
-) {
+export function canvasCoordsFromCellCoords(cellType, cellPos, cellSize) {
   const projectionFuncs = {
     square: canvasCoordsFromSquareGrid,
     hex: canvasCoordsFromAxialHex
   };
-  return projectionFuncs[cellType](
-    canvasWidth,
-    canvasHeight,
-    cellPos,
-    cellSize
-  );
+  return projectionFuncs[cellType](cellPos, cellSize);
 }
 
-function canvasCoordsFromAxialHex(
-  canvasWidth,
-  canvasHeight,
-  cellPos,
-  cellSize
-) {
+function canvasCoordsFromAxialHex(cellPos, cellSize) {
   const x =
     cellSize * (Math.sqrt(3) * cellPos[0] + (Math.sqrt(3) / 2) * cellPos[1]);
   const y = cellSize * ((3 / 2) * cellPos[1]);
@@ -249,12 +293,7 @@ function hexRound(axialCoords) {
   return [rx, rz];
 }
 
-function canvasCoordsFromSquareGrid(
-  canvasWidth,
-  canvasHeight,
-  cellPos,
-  cellSize
-) {
+function canvasCoordsFromSquareGrid(cellPos, cellSize) {
   return [cellPos[0] * cellSize, cellPos[1] * cellSize];
 }
 
