@@ -58,6 +58,24 @@ export function shiftCanvas(ctx, dx, dy) {
   ctx.restore();
 }
 
+//TODO: This doesn't really work
+export function scaleCanvas(ctx, scaleFactor, centerX, centerY) {
+  ctx.save();
+  ctx.globalCompositeOperation = "copy";
+  ctx.imageSmoothingEnabled = false;
+  ctx.setTransform(
+    1,
+    0,
+    0,
+    1,
+    centerX - centerX * scaleFactor,
+    centerY - centerY * scaleFactor
+  );
+  ctx.scale(scaleFactor, scaleFactor);
+  ctx.drawImage(ctx.canvas, 0, 0);
+  ctx.restore();
+}
+
 export function cellsVisibleAfterShift(
   canvasWidth,
   canvasHeight,
@@ -66,7 +84,7 @@ export function cellsVisibleAfterShift(
   currentOffset,
   cellType,
   cellSize,
-  boundingBox
+  clipBox
 ) {
   const horizPanBox = {
     top: -currentOffset.y,
@@ -81,12 +99,12 @@ export function cellsVisibleAfterShift(
     height: Math.abs(dy)
   };
 
-  const horizIntersect = boxIntersect(boundingBox, {
+  const horizIntersect = boxIntersect(clipBox, {
     ...horizPanBox,
     right: horizPanBox.left + horizPanBox.width,
     bottom: horizPanBox.top + horizPanBox.height
   });
-  const vertIntersect = boxIntersect(boundingBox, {
+  const vertIntersect = boxIntersect(clipBox, {
     ...vertPanBox,
     right: vertPanBox.left + vertPanBox.width,
     bottom: vertPanBox.top + vertPanBox.height
@@ -113,25 +131,34 @@ export function cellsVisibleAfterShift(
       )
     : [];
 
-  // const newlyVisibleX = cellsInRect(
-  //   horizPanBox.left,
-  //   horizPanBox.top,
-  //   horizPanBox.width,
-  //   horizPanBox.height,
-  //   cellType,
-  //   cellSize
-  // );
-
-  // const newlyVisibleY = cellsInRect(
-  //   vertPanBox.left,
-  //   vertPanBox.top,
-  //   vertPanBox.width,
-  //   vertPanBox.height,
-  //   cellType,
-  //   cellSize
-  // );
-
   return [...newlyVisibleX, ...newlyVisibleY];
+}
+
+export function cellsVisibleInCanvasViewport(
+  canvasWidth,
+  canvasHeight,
+  currentOffset,
+  cellType,
+  cellSize,
+  clipBox
+) {
+  const viewportBox = {
+    top: -currentOffset.y,
+    left: -currentOffset.x,
+    right: -currentOffset.x + canvasWidth,
+    bottom: -currentOffset.y + canvasHeight
+  };
+
+  const clippedViewportBox = boxIntersect(clipBox, viewportBox);
+
+  return cellsInRect(
+    clippedViewportBox.left,
+    clippedViewportBox.top,
+    clippedViewportBox.right - clippedViewportBox.left,
+    clippedViewportBox.bottom - clippedViewportBox.top,
+    cellType,
+    cellSize
+  );
 }
 
 function boxIntersect(box1, box2) {
@@ -259,6 +286,14 @@ export function canvasCoordsFromCellCoords(cellType, cellPos, cellSize) {
     hex: canvasCoordsFromAxialHex
   };
   return projectionFuncs[cellType](cellPos, cellSize);
+}
+
+export function cellCoordsFromCanvasCoords(cellType, x, y, cellSize) {
+  const projectionFuncs = {
+    square: squareGridCoordsFromCanvas,
+    hex: hexCoordsFromCanvas
+  };
+  return projectionFuncs[cellType](x, y, cellSize);
 }
 
 function canvasCoordsFromAxialHex(cellPos, cellSize) {

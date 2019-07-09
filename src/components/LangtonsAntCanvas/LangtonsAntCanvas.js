@@ -11,7 +11,7 @@ import {
   drawCellsv2,
   clearCanvas,
   shiftCanvas,
-  cellsVisibleAfterShift,
+  scaleCanvas,
   groupByColor
 } from "./drawingUtils";
 import PanningWorker from "./panning.worker.js";
@@ -76,9 +76,7 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
       antStateRef.current = { pos: newPos, dir: newDirIndex };
 
       updatedCells.forEach(pos => {
-        const cellColor = gridStateRef.current[pos]
-          ? gridStateRef.current[pos].color
-          : primaryColor;
+        const cellColor = gridStateRef.current[pos].color;
         cellsToDraw[cellColor].push(pos);
       });
 
@@ -266,20 +264,30 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
   // Handle zooming via cellSize change
   const handleWheel = e => {
     const canvas = canvasRef.current;
-    let newCellSize = cellSizeRef.current;
-    if (e.deltaY < 0) {
-      newCellSize++;
-    } else {
-      newCellSize--;
+    const ctx = canvas.getContext("2d");
+    let newCellSize =
+      e.deltaY < 0 ? cellSizeRef.current + 1 : cellSizeRef.current - 1;
+    if (newCellSize > 0) {
+      // scaleCanvas(
+      //   ctx,
+      //   newCellSize / cellSizeRef.current,
+      //   throttledDragData.offset.x,
+      //   throttledDragData.offset.y
+      // );
+      clearCanvas(ctx);
+      panningWorkerRef.current.postMessage({
+        action: "ZOOMING",
+        payload: [
+          canvasWidth,
+          canvasHeight,
+          throttledDragData.offset,
+          currentCellTypeRef.current,
+          newCellSize,
+          cellSizeRef.current
+        ]
+      });
+      cellSizeRef.current = newCellSize;
     }
-    cellSizeRef.current = newCellSize;
-    clearCanvas(canvas.getContext("2d"));
-    drawCellsv2(
-      canvas,
-      currentCellTypeRef.current,
-      groupByColor(gridStateRef.current),
-      cellSizeRef.current
-    );
   };
 
   // Run animation loop

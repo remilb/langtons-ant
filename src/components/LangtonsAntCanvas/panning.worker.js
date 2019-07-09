@@ -1,6 +1,8 @@
 import {
   cellsVisibleAfterShift,
-  canvasCoordsFromCellCoords
+  cellsVisibleInCanvasViewport,
+  canvasCoordsFromCellCoords,
+  cellCoordsFromCanvasCoords
 } from "./drawingUtils";
 
 // Nested look up table allowing fast look up of wether or not a cell has been visited.
@@ -26,6 +28,8 @@ onmessage = e => {
     );
   } else if (e.data.action === "PANNING") {
     handlePanningEvent(...e.data.payload);
+  } else if (e.data.action === "ZOOMING") {
+    handleZoomingEvent(...e.data.payload);
   } else if (e.data.action === "UPDATE_REPAINTED_CELLS") {
     unqueueCells(e.data.payload);
   } else if (e.data.action === "RESET") {
@@ -54,6 +58,34 @@ function handlePanningEvent(
     boundingBox
   );
   const filteredCells = newCells.filter(
+    cell => isCellVisited(cell) && !isAlreadyQueued(cell)
+  );
+
+  if (filteredCells.length > 0) {
+    queueCells(filteredCells);
+    self.postMessage(filteredCells); // eslint-disable-line no-restricted-globals
+  }
+}
+
+function handleZoomingEvent(
+  canvasWidth,
+  canvasHeight,
+  currentOffset,
+  cellType,
+  newCellSize,
+  oldCellSize
+) {
+  scaleBoundingBox(oldCellSize, newCellSize, cellType);
+
+  const cells = cellsVisibleInCanvasViewport(
+    canvasWidth,
+    canvasHeight,
+    currentOffset,
+    cellType,
+    newCellSize,
+    boundingBox
+  );
+  const filteredCells = cells.filter(
     cell => isCellVisited(cell) && !isAlreadyQueued(cell)
   );
 
@@ -108,4 +140,22 @@ function updateBoundingBox(cell, cellType, cellSize) {
   } else if (canvasCoords[1] + cellSize > boundingBox.bottom) {
     boundingBox.bottom = canvasCoords[1] + cellSize;
   }
+}
+
+function scaleBoundingBox(oldCellSize, newCellSize, cellType) {
+  const topLeftCorner = cellCoordsFromCanvasCoords(
+    cellType,
+    boundingBox.left,
+    boundingBox.top,
+    oldCellSize
+  );
+  const bottomRightCorner = cellCoordsFromCanvasCoords(
+    cellType,
+    boundingBox.right,
+    boundingBox.bottom,
+    oldCellSize
+  );
+  boundingBox = { top: 0, left: 0, bottom: 0, right: 0 };
+  updateBoundingBox(topLeftCorner, cellType, newCellSize);
+  updateBoundingBox(bottomRightCorner, cellType, newCellSize);
 }
