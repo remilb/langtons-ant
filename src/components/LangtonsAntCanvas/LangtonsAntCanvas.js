@@ -45,11 +45,14 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
   const primaryColor = Object.keys(rules)[0];
   const cellsToRedraw = useRef([]);
   const stepsPerFrame = 10;
-  const maxCellsPerFrame = 1000 - stepsPerFrame;
   const prevTimestampRef = useRef(0);
 
   // Used for panning
-  const panningWorkerRef = usePanningWebWorker();
+  const panningWorkerRef = usePanningWebWorker(e => {
+    const newlyVisible = e.data;
+    cellsToRedraw.current = cellsToRedraw.current.concat(newlyVisible);
+  });
+
   const [dragData, setDragData] = useClickAndDragPan(canvasRef, {
     x: Math.floor(canvasWidth / 2),
     y: Math.floor(canvasHeight / 2)
@@ -94,8 +97,12 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
       stepCountRef.current += stepsPerFrame;
     }
 
+    const redrawCount = 1000;
     const redrawBatch =
-      cellsToRedraw.current.length > 0 ? cellsToRedraw.current.shift() : [];
+      cellsToRedraw.current.length > 0
+        ? cellsToRedraw.current.slice(0, redrawCount)
+        : [];
+    cellsToRedraw.current = cellsToRedraw.current.slice(redrawCount);
     for (let pos of redrawBatch) {
       const cellColor = gridStateRef.current[pos].color;
       cellsToDraw[cellColor].push(pos);
@@ -241,11 +248,6 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
       throttledDragData.offset.y
     );
 
-    panningWorkerRef.current.onmessage = e => {
-      const newlyVisible = e.data;
-      cellsToRedraw.current.push(newlyVisible);
-    };
-
     // Calculate cells that have "slid" into view
     panningWorkerRef.current.postMessage({
       action: "PANNING",
@@ -371,10 +373,11 @@ function useClickAndDragPan(elementRef, initialOffset, useMouseOut = false) {
   return [dragData, setDragData];
 }
 
-function usePanningWebWorker() {
+function usePanningWebWorker(messageHandler) {
   const panningWorker = useRef();
   useEffect(() => {
     panningWorker.current = new PanningWorker();
+    panningWorker.current.onmessage = messageHandler;
     return () => panningWorker.current.terminate();
   }, []);
   return panningWorker;
