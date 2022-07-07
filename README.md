@@ -44,3 +44,5 @@ There is still a lot of work I would like to do here. Don't be surprised if you 
 - [Chris Langton Explaining the Interaction of Multiple Ants](https://www.youtube.com/watch?v=w6XQQhCgq5c)
 - [The Ultimate in Anty-Particles](https://web.archive.org/web/20160303211426/http://dev.whydomath.org/Reading_Room_Material/ian_stewart/AntyParticles.pdf)
 - [Complexity of Lanton's Ant](https://reader.elsevier.com/reader/sd/pii/S0166218X00003346?token=A594988D9299F18E4E7EC2430AF3FE5C808E840080978DD037CEC237CFB3D7391FD186AD80365509CE64D0A2AADCBF25&originRegion=us-east-1&originCreation=20220707073526)
+
+🐜🐜🐜🐜🐜🐜🐜🐜🐜🐜🐜🐜🐜🐜🐜🐜🐜
