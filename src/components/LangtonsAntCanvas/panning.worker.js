@@ -18,6 +18,13 @@ let visitedCells = {};
 // to the bounding box. Many rulesets produce near-convex structures that can be tightly bounded.
 let boundingBox = { top: 0, left: 0, bottom: 0, right: 0 };
 
+// Queue of cells to post back to main thread in chunks
+const cellQueue = [];
+
+//**************TILE BASE PANNING */
+// map tiles to arrays of cells in tile
+const tiles = {};
+
 // TODO: needs to know about resetting grid state as well
 onmessage = e => {
   if (e.data.action === "UPDATE_VISITED_CELLS") {

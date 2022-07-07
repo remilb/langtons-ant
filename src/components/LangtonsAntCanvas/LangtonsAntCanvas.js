@@ -97,21 +97,23 @@ export const LangtonsAntCanvas = forwardRef((props, ref) => {
       stepCountRef.current += stepsPerFrame;
     }
 
-    const redrawCount = 1000;
-    const redrawBatch =
-      cellsToRedraw.current.length > 0
-        ? cellsToRedraw.current.slice(0, redrawCount)
-        : [];
-    cellsToRedraw.current = cellsToRedraw.current.slice(redrawCount);
-    for (let pos of redrawBatch) {
+    // const redrawCount = 10000;
+    // const redrawBatch =
+    //   cellsToRedraw.current.length > 0
+    //     ? cellsToRedraw.current.slice(0, redrawCount)
+    //     : [];
+    // cellsToRedraw.current = cellsToRedraw.current.slice(redrawCount);
+    for (let pos of cellsToRedraw.current) {
       const cellColor = gridStateRef.current[pos].color;
       cellsToDraw[cellColor].push(pos);
     }
 
     panningWorkerRef.current.postMessage({
       action: "UPDATE_REPAINTED_CELLS",
-      payload: redrawBatch
+      payload: cellsToRedraw.current
     });
+
+    cellsToRedraw.current = [];
 
     drawCellsv2(
       canvas,
